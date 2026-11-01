@@ -2353,3 +2353,5 @@ section,
   .about .personal-info { padding: 1.5rem; }
   .about .personal-info .col-6 { width: 100%; }
 }
+/* die-cut sticker owl: shadow is baked into the image */
+.about .about-owl { width: 122px; right: -30px; bottom: -14px; filter: none; }
