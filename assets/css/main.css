@@ -2260,3 +2260,46 @@ section,
   height: 1em;
   text-align: center;
 }
+
+/* Skills as video-game XP bars */
+.skills .skill-box {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--heading-color);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--heading-color);
+}
+.skills .skill-box h3 {
+  font-family: var(--heading-font);
+  text-transform: uppercase;
+  font-size: 1.15rem;
+  letter-spacing: 0.3px;
+}
+.skills .skill-box p { opacity: 0.75; flex: 1; }
+.skills .skill-box .skill-level {
+  font-family: var(--heading-font);
+  font-size: 1.05rem;
+  color: var(--heading-color);
+  letter-spacing: 0.5px;
+}
+.skills .skill-box .skill-level .lvl {
+  font-size: 0.75rem;
+  color: var(--accent-color);
+  margin-right: 2px;
+}
+.skills .skill-box .progress.xp-bar {
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid var(--heading-color);
+  background-color: color-mix(in srgb, var(--heading-color), transparent 92%);
+  padding: 1px;
+}
+.skills .skill-box .progress.xp-bar .progress-bar {
+  border-radius: 2px;
+  transition: width 1.4s steps(12, end);
+  background-image: repeating-linear-gradient(90deg,
+    var(--accent-color) 0 10px,
+    color-mix(in srgb, var(--accent-color), #fff 25%) 10px 12px);
+  background-color: var(--accent-color);
+}
