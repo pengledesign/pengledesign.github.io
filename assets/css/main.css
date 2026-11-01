@@ -2249,3 +2249,14 @@ section,
 .portfolio-details-page .page-title .title-wrapper { max-width: 760px; margin: 0; }
 .portfolio-details-page .project-section-title { text-align: left; }
 .portfolio-details-page .project-video figcaption { text-align: left; }
+
+/* Social pills: pin icon glyphs to the exact center of the orange circle */
+.social-pill i { line-height: 0; padding: 0; }
+.social-pill i::before {
+  display: block;
+  line-height: 1;
+  vertical-align: 0 !important;
+  width: 1em;
+  height: 1em;
+  text-align: center;
+}
