@@ -2303,3 +2303,53 @@ section,
     color-mix(in srgb, var(--accent-color), #fff 25%) 10px 12px);
   background-color: var(--accent-color);
 }
+
+/* About: smaller sticker-style headshot with the hat owl peeking in */
+.about .about-photo {
+  position: relative;
+  max-width: 340px;
+  margin: 0 auto;
+  padding: 0 12px 28px 0;
+}
+.about .about-image {
+  border: 3px solid var(--heading-color);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 10px 10px 0 var(--accent-color);
+  transform: rotate(-2.5deg);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+  background: #fff;
+}
+.about .about-image img { box-shadow: none; display: block; width: 100%; height: auto; }
+.about .about-photo:hover .about-image { transform: rotate(0deg) translate(-2px, -2px); box-shadow: 13px 13px 0 var(--accent-color); }
+.about .about-owl {
+  position: absolute;
+  width: 104px;
+  height: auto;
+  right: -22px;
+  bottom: -6px;
+  transform: rotate(8deg);
+  transform-origin: bottom center;
+  filter: drop-shadow(3px 3px 0 rgba(39, 35, 97, 0.15));
+  transition: transform 0.35s ease;
+  pointer-events: none;
+}
+.about .about-photo:hover .about-owl { transform: rotate(-4deg) translateY(-6px); }
+@media (prefers-reduced-motion: reduce) {
+  .about .about-image, .about .about-owl { transition: none; }
+}
+
+/* Info card gets the same outlined sticker look as the skills */
+.about .personal-info {
+  border: 2px solid var(--heading-color);
+  box-shadow: 4px 4px 0 var(--heading-color);
+  border-radius: 14px;
+}
+@media (max-width: 991.98px) {
+  .about .about-photo { max-width: 280px; }
+}
+.about .personal-info .info-item .value { overflow-wrap: anywhere; }
+@media (max-width: 575.98px) {
+  .about .personal-info { padding: 1.5rem; }
+  .about .personal-info .col-6 { width: 100%; }
+}
