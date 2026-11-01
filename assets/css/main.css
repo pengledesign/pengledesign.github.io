@@ -2355,3 +2355,125 @@ section,
 }
 /* die-cut sticker owl: shadow is baked into the image */
 .about .about-owl { width: 122px; right: -30px; bottom: -14px; filter: none; }
+
+/*--------------------------------------------------------------
+# Mobile: compact layout (phones)
+--------------------------------------------------------------*/
+@media (max-width: 767.98px) {
+  section, .section { padding: 44px 0; }
+  .section-title { padding-bottom: 28px; }
+  .section-title h2 { font-size: 2rem; }
+  .section-title p { font-size: 0.95rem; line-height: 1.55; }
+
+  /* Hero */
+  .hero { padding: 24px 0 36px; }
+  .hero .row.content { --bs-gutter-x: 1rem; }
+  .hero .hero-image { max-width: 240px; margin: 0 auto; padding: 1rem; }
+  .hero .hero-image .shape-1 { width: 170px; height: 170px; top: -6px; right: -6px; }
+  .hero .hero-image .shape-2 { width: 110px; height: 110px; bottom: -6px; left: -6px; }
+  .hero .content h1 { font-size: clamp(3.2rem, 17vw, 4.6rem); line-height: 1; margin: 0.75rem 0 0.75rem; }
+  .hero .content .lead { font-size: 1rem; line-height: 1.55; margin-bottom: 1.25rem; }
+  .hero .cta-buttons { flex-direction: row; justify-content: center; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .hero .cta-buttons .btn { padding: 0.6rem 1.1rem; font-size: 0.95rem; }
+  .hero .hero-stats { flex-direction: row; justify-content: space-between; gap: 0.5rem; margin-top: 0.5rem; }
+  .hero .hero-stats .stat-item { flex: 1; }
+  .hero .hero-stats .stat-item .stat-number { font-size: 1.75rem; }
+  .hero .hero-stats .stat-item .stat-label { font-size: 0.72rem; margin-top: 0.3rem; }
+
+  /* About */
+  .about .about-photo { max-width: 210px; padding-bottom: 18px; }
+  .about .about-owl { width: 84px; right: -22px; bottom: -8px; }
+  .about .about-content { margin-top: 2rem; }
+  .about .about-content .subtitle { margin-bottom: 0.5rem; }
+  .about .about-content h2 { font-size: 1.5rem; margin-bottom: 0.75rem; }
+  .about .about-content .lead { font-size: 1rem; margin-bottom: 0.75rem !important; }
+  .about .about-content p.mb-4 { margin-bottom: 0.75rem !important; font-size: 0.92rem; }
+  .about .personal-info { margin-top: 1rem; padding: 1rem 1.1rem; }
+  .about .personal-info .row { --bs-gutter-y: 0.85rem; }
+  .about .personal-info .col-6 { width: 50%; }
+  .about .personal-info .col-6:last-child { width: 100%; }
+  .about .personal-info .info-item { gap: 0.15rem; }
+  .about .personal-info .info-item .label { font-size: 0.72rem; }
+  .about .personal-info .info-item .value { font-size: 0.9rem; }
+  .about .signature { margin-top: 1rem !important; gap: 1rem; }
+  .about .signature .signature-image { max-width: 96px; }
+  .about .signature .signature-info h4 { font-size: 1rem; }
+
+  /* Skills: swipeable row of XP cards */
+  .skills { padding-top: 8px; }
+  .skills .skills-animation {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    margin-right: calc(-0.5 * var(--bs-gutter-x));
+    padding: 4px 4px 14px;
+    scrollbar-width: none;
+  }
+  .skills .skills-animation::-webkit-scrollbar { display: none; }
+  .skills .skills-animation > [class*="col-"] { flex: 0 0 74%; max-width: 74%; scroll-snap-align: start; }
+  .skills .skill-box { padding: 1.1rem 1.1rem 1.2rem; }
+  .skills .skill-box h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+  .skills .skill-box p { font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+  /* Portfolio: 2-up compact grid, swipeable filter row */
+  .portfolio .portfolio-filters-container { margin-bottom: 18px; }
+  .portfolio .portfolio-filters {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 2px 2px 8px;
+    margin: 0 -12px;
+    scrollbar-width: none;
+  }
+  .portfolio .portfolio-filters::-webkit-scrollbar { display: none; }
+  .portfolio .portfolio-filters li { flex: none; font-size: 0.85rem !important; padding: 6px 14px !important; margin: 0 !important; }
+  .portfolio .isotope-container { --bs-gutter-x: 12px; --bs-gutter-y: 12px; }
+  .portfolio .portfolio-card { border-radius: 12px; }
+  .portfolio .portfolio-card:hover { transform: none; }
+  .portfolio .portfolio-card .portfolio-image { aspect-ratio: 1 / 1; }
+  .portfolio .portfolio-card .portfolio-overlay { display: none; }
+  .portfolio .portfolio-card .portfolio-content { padding: 10px 12px 12px; }
+  .portfolio .portfolio-card .portfolio-content .category { font-size: 0.62rem; letter-spacing: 0.6px; margin-bottom: 4px; }
+  .portfolio .portfolio-card .portfolio-content h3 { font-size: 0.92rem; line-height: 1.15; margin: 0; }
+  .portfolio .portfolio-card .portfolio-content p { display: none; }
+
+  /* Contact */
+  .contact .content h2 { font-size: 2rem; margin-bottom: 0.75rem !important; }
+  .contact .content .lead { font-size: 1rem; margin-bottom: 1rem !important; }
+  .contact .contact-info { margin-top: 1.25rem !important; }
+  .contact-socials { gap: 8px; }
+  .social-pill { padding: 6px 12px 6px 6px; gap: 7px; font-size: 12px; box-shadow: 2px 2px 0 var(--heading-color); }
+  .social-pill i { width: 26px; height: 26px; font-size: 13px; }
+  .contact .contact-form .card-body { padding: 1.25rem !important; }
+  .contact .contact-form .row { --bs-gutter-y: 0.75rem; }
+  .contact .contact-form textarea { height: 120px; }
+  .site-footer { padding: 1rem; }
+
+  /* Project pages */
+  .portfolio-details-page .page-title { padding-top: 8px; padding-bottom: 0; }
+  .portfolio-details-page .page-title .breadcrumbs { margin-bottom: 0.75rem; }
+  .portfolio-details-page .page-title .breadcrumbs .breadcrumb-item { font-size: 0.78rem; }
+  .page-title .title-wrapper .project-label { font-size: 11px; margin-bottom: 0.25rem; }
+  .page-title .title-wrapper h1 { font-size: clamp(1.9rem, 9vw, 2.4rem); margin-bottom: 0.6rem; }
+  .page-title .title-wrapper p { font-size: 0.95rem !important; line-height: 1.55; }
+  .portfolio-details.section { padding-top: 20px; }
+  .project-gallery { gap: 12px; }
+  .project-gallery .project-shot { border-radius: 12px; }
+  .project-section-title { font-size: 1.5rem; margin-top: 16px; padding-top: 16px; }
+  .project-video figcaption { font-size: 12px; margin-top: 6px; }
+  .project-nav { margin-top: 28px; padding-top: 20px; }
+  .project-nav-link { font-size: 0.85rem; }
+  .project-nav-all { width: 40px; height: 40px; }
+}
+@media (max-width: 767.98px) {
+  .portfolio .portfolio-card .portfolio-content { min-height: 74px; }
+}
+@media (max-width: 767.98px) {
+  .portfolio .portfolio-filters {
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+            mask-image: linear-gradient(90deg, #000 85%, transparent);
+    padding-right: 40px;
+  }
+}
