@@ -2477,3 +2477,53 @@ section,
     padding-right: 40px;
   }
 }
+
+/* Award badges (Redneck-Ville) */
+.page-title .title-wrapper .project-award {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0.75rem 10px;
+  padding: 4px 12px;
+  border: 2px solid var(--heading-color);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--heading-color);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--heading-color);
+  vertical-align: middle;
+}
+.page-title .title-wrapper .project-award i { color: var(--accent-color); }
+.portfolio .portfolio-card .portfolio-image { position: relative; }
+.portfolio .portfolio-card .card-award {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 2px solid var(--heading-color);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--heading-color);
+  font-family: var(--heading-font);
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--heading-color);
+}
+.portfolio .portfolio-card .card-award i { color: var(--accent-color); }
+
+/* Grid gallery for character sets (Nature Warriors) */
+.project-gallery.project-gallery--grid { grid-template-columns: repeat(3, 1fr); align-items: end; }
+.project-gallery--grid .project-shot { background: #fff; }
+.project-gallery--grid .project-shot img { aspect-ratio: 3 / 4; object-fit: contain; padding: 6%; }
+
+@media (max-width: 767.98px) {
+  .project-gallery.project-gallery--grid { grid-template-columns: repeat(2, 1fr); }
+  .page-title .title-wrapper .project-award { margin-left: 0; display: flex; width: fit-content; font-size: 11.5px; }
+  .portfolio .portfolio-card .card-award { top: 6px; left: 6px; padding: 2px 7px; font-size: 9.5px; box-shadow: 1px 1px 0 var(--heading-color); }
+}
