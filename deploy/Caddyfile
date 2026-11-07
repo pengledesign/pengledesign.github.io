@@ -1,0 +1,11 @@
+cop-on-top.com, www.cop-on-top.com {
+	encode gzip
+	@portal path /portal /portal/* /api/*
+	handle @portal {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		root * /var/www/cop-on-top
+		file_server
+	}
+}

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Live Cameras · Cop On Top</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Saira:wght@600;700&display=swap">
+<link rel="stylesheet" href="/portal/portal.css">
+<script type="module" src="/portal/vendor/video-stream.js"></script>
+</head>
+<body>
+<div class="console">
+  <header class="topbar">
+    <a class="logo" href="/" title="Back to the website"><img src="/img/logo-h-rev.png" alt="Cop On Top"></a>
+    <div class="who">
+      <span class="role" id="role" hidden>Admin</span>
+      <span id="name"></span>
+      <a href="/portal/admin" id="adminLink" hidden>Manage</a>
+      <button type="button" id="logout">Log out</button>
+    </div>
+  </header>
+  <div class="main">
+    <aside class="side" aria-label="Cameras">
+      <h2>YOUR CAMERAS</h2>
+      <div class="groups" id="list"></div>
+    </aside>
+    <section class="stage">
+      <div class="stage-head">
+        <div><p id="camSite">&nbsp;</p><h1 id="camName">Loading…</h1></div>
+        <span class="live idle" id="live"><i></i><span id="liveTxt">Connecting</span></span>
+      </div>
+      <div class="viewer" id="viewer">
+        <div class="overlay" id="ov"><div><div class="spinner"></div><strong>Connecting</strong>Starting the live feed…</div></div>
+      </div>
+      <div class="controls" id="ptz" hidden>
+        <div class="ctl">
+          <h2>PAN &amp; TILT</h2>
+          <div class="dpad">
+            <span></span>
+            <button class="pbtn" data-dir="up" aria-label="Tilt up"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+            <span></span>
+            <button class="pbtn" data-dir="left" aria-label="Pan left"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <button class="pbtn" id="home" aria-label="Go to home position">HOME</button>
+            <button class="pbtn" data-dir="right" aria-label="Pan right"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            <span></span>
+            <button class="pbtn" data-dir="down" aria-label="Tilt down"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+            <span></span>
+          </div>
+        </div>
+        <div class="ctl">
+          <h2>ZOOM</h2>
+          <div class="zoom">
+            <button class="pbtn" data-dir="zout" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+            <button class="pbtn" data-dir="zin" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          </div>
+        </div>
+        <div class="ctl speed">
+          <h2>MOVE SPEED</h2>
+          <input type="range" id="speed" min="1" max="5" value="3" aria-label="Move speed">
+          <div class="row"><span>Slow</span><span>Fast</span></div>
+          <p class="keys">Hold a button to move.<br>Keyboard: <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> move, <kbd>+</kbd><kbd>−</kbd> zoom</p>
+          <p class="ptz-msg" id="ptzMsg"></p>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-line" type="button" id="fs" style="color:var(--p-text);border-color:var(--p-line)">Full screen</button>
+      </div>
+    </section>
+  </div>
+</div>
+<script type="module">
+const $ = id => document.getElementById(id);
+const H = { 'Content-Type': 'application/json', 'x-cot': '1' };
+const IDLE_MS = 10 * 60 * 1000;
+let cams = [], cur = null, player = null, playTimer = 0, lastActive = Date.now();
+
+const ico = '<svg viewBox="0 0 24 24"><path d="M3 7h12v10H3z"/><path d="M15 10l6-3v10l-6-3"/></svg>';
+
+async function init() {
+  const me = await fetch('/api/me').then(r => r.ok ? r.json() : null);
+  if (!me) { location.href = '/portal/login'; return; }
+  $('name').textContent = me.name;
+  if (me.role === 'admin') { $('role').hidden = false; $('adminLink').hidden = false; }
+  cams = await fetch('/api/cameras').then(r => r.json());
+  renderList();
+  if (!cams.length) {
+    $('camName').textContent = 'No cameras yet';
+    $('camSite').textContent = '';
+    overlay('<strong>No cameras yet</strong>' + (me.role === 'admin' ? 'Add one on the Manage page.' : 'Cop On Top will add your cameras here. Call HQ at 602-699-4400 with questions.'));
+    setLive('idle', 'Offline');
+    return;
+  }
+  let first = cams[0];
+  try { const saved = localStorage.getItem('cot-cam'); if (saved) first = cams.find(c => c.id === saved) || first; } catch {}
+  select(first);
+}
+
+function renderList() {
+  const list = $('list'); list.innerHTML = '';
+  if (!cams.length) { list.innerHTML = '<div class="empty">No cameras are assigned to this login yet.</div>'; return; }
+  const sites = [...new Set(cams.map(c => c.site))];
+  for (const s of sites) {
+    const g = document.createElement('div'); g.className = 'group';
+    const h = document.createElement('h3'); h.textContent = s; g.appendChild(h);
+    for (const c of cams.filter(x => x.site === s)) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'cam';
+      b.setAttribute('aria-pressed', cur && cur.id === c.id ? 'true' : 'false');
+      b.innerHTML = '<span class="ic">' + ico + '</span><span><span class="nm"></span><br><span class="tag"></span></span>';
+      b.querySelector('.nm').textContent = c.name;
+      b.querySelector('.tag').textContent = c.ptz ? 'PTZ camera' : 'Fixed camera';
+      b.addEventListener('click', () => select(c));
+      g.appendChild(b);
+    }
+    list.appendChild(g);
+  }
+}
+
+function overlay(html) { $('ov').innerHTML = '<div>' + html + '</div>'; $('ov').hidden = false; }
+function setLive(cls, txt) { $('live').className = 'live' + (cls ? ' ' + cls : ''); $('liveTxt').textContent = txt; }
+
+function stopPlayer() {
+  clearTimeout(playTimer);
+  if (player) { player.remove(); player = null; }
+}
+function startPlayer() {
+  stopPlayer();
+  overlay('<div class="spinner"></div><strong>Connecting</strong>Starting the live feed…');
+  setLive('idle', 'Connecting');
+  const v = document.createElement('video-stream');
+  v.mode = 'mse';
+  $('viewer').prepend(v);
+  v.src = new URL('/api/ws?cam=' + encodeURIComponent(cur.id), location.href);
+  player = v;
+  const vid = v.video;
+  if (vid) {
+    vid.controls = false; vid.muted = true;
+    vid.addEventListener('playing', () => { if (player === v) { $('ov').hidden = true; setLive('', 'Live'); clearTimeout(playTimer); } });
+  }
+  playTimer = setTimeout(() => {
+    if (player !== v) return;
+    overlay('<strong>Camera not responding</strong>The tower may be offline or the signal is weak.<br><button class="btn btn-lime" id="retry">Try again</button>');
+    setLive('idle', 'Offline');
+    $('retry').onclick = () => { lastActive = Date.now(); startPlayer(); };
+  }, 25000);
+}
+
+function select(c) {
+  cur = c;
+  try { localStorage.setItem('cot-cam', c.id); } catch {}
+  $('camName').textContent = c.name;
+  $('camSite').textContent = c.site;
+  $('ptz').hidden = !c.ptz;
+  $('ptzMsg').textContent = '';
+  renderList();
+  lastActive = Date.now();
+  startPlayer();
+}
+
+// Pause after 10 minutes without interaction, to protect the tower's cell data.
+['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(t => addEventListener(t, () => { lastActive = Date.now(); }, { passive: true }));
+setInterval(() => {
+  if (player && Date.now() - lastActive > IDLE_MS) {
+    stopPlayer();
+    overlay('<strong>Paused</strong>The feed pauses after 10 minutes to save the tower\'s data.<br><button class="btn btn-lime" id="resume">Resume live view</button>');
+    setLive('idle', 'Paused');
+    $('resume').onclick = () => { lastActive = Date.now(); startPlayer(); };
+  }
+}, 15000);
+
+// ---------- PTZ
+let moveTimer = 0, moveDir = null, activeBtn = null;
+function vec(dir) {
+  const s = Number($('speed').value) * 20;
+  return { left: [-s, 0, 0], right: [s, 0, 0], up: [0, s, 0], down: [0, -s, 0], zin: [0, 0, s], zout: [0, 0, -s] }[dir];
+}
+async function ptz(body) {
+  try {
+    const r = await fetch('/api/ptz', { method: 'POST', headers: H, body: JSON.stringify(Object.assign({ cam: cur.id }, body)) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); $('ptzMsg').textContent = j.error || 'Camera control failed.'; }
+    else $('ptzMsg').textContent = '';
+  } catch { $('ptzMsg').textContent = "Can't reach the server."; }
+}
+function startMove(dir, btn) {
+  if (!cur || !cur.ptz) return;
+  stopMove();
+  moveDir = dir; activeBtn = btn || null; if (activeBtn) activeBtn.classList.add('active');
+  const [pan, tilt, zoom] = vec(dir);
+  ptz({ action: 'move', pan, tilt, zoom });
+  moveTimer = setInterval(() => ptz({ action: 'move', pan, tilt, zoom }), 700);
+}
+function stopMove() {
+  if (!moveDir) return;
+  clearInterval(moveTimer); moveDir = null;
+  if (activeBtn) activeBtn.classList.remove('active'); activeBtn = null;
+  ptz({ action: 'stop' });
+}
+document.querySelectorAll('[data-dir]').forEach(b => {
+  b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch {} startMove(b.dataset.dir, b); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => b.addEventListener(t, stopMove));
+  b.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !moveDir) { e.preventDefault(); startMove(b.dataset.dir, b); } });
+  b.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' ') stopMove(); });
+});
+$('home').addEventListener('click', () => ptz({ action: 'home' }));
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', '+': 'zin', '=': 'zin', '-': 'zout', '_': 'zout' };
+let held = null;
+addEventListener('keydown', e => {
+  if (!cur || !cur.ptz || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const d = KEYS[e.key]; if (!d) return;
+  e.preventDefault(); if (held === e.key) return; held = e.key;
+  startMove(d, document.querySelector('[data-dir="' + d + '"]'));
+});
+addEventListener('keyup', e => { if (e.key === held) { held = null; stopMove(); } });
+addEventListener('blur', stopMove);
+
+$('fs').addEventListener('click', () => { const v = $('viewer'); (v.requestFullscreen || v.webkitRequestFullscreen || (() => {})).call(v); });
+$('logout').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST', headers: H }); location.href = '/portal/login'; });
+
+await customElements.whenDefined('video-stream');
+init();
+</script>
+</body>
+</html>

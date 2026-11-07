@@ -1,0 +1,15 @@
+[Unit]
+Description=Cop On Top client portal
+After=network-online.target go2rtc.service
+Wants=network-online.target
+
+[Service]
+User=cotportal
+WorkingDirectory=/opt/cop-on-top/portal
+Environment=COT_DATA=/var/lib/cop-on-top
+ExecStart=/usr/bin/node /opt/cop-on-top/portal/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

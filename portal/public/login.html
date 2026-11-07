@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Client Login · Cop On Top</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Saira:wght@600;700&display=swap">
+<link rel="stylesheet" href="/portal/portal.css">
+</head>
+<body>
+<main class="auth">
+  <form class="card" id="f" novalidate>
+    <div style="height:60px" aria-hidden="true"></div>
+    <a href="/" class="peek" aria-label="Back to the Cop On Top website"><img src="/img/mascot-peek.png" alt=""></a>
+    <h1>Client Login</h1>
+    <p class="sub">See your cameras live, any time.</p>
+    <label for="u">Username<input id="u" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label for="p">Password<input id="p" type="password" autocomplete="current-password" required></label>
+    <p class="err" id="e" hidden></p>
+    <button class="btn btn-blue" id="b" type="submit">Log in</button>
+    <p class="back"><a href="/">← Back to the website</a></p>
+  </form>
+</main>
+<script>
+const f = document.getElementById('f'), e = document.getElementById('e'), b = document.getElementById('b');
+document.getElementById('u').focus();
+f.addEventListener('submit', async ev => {
+  ev.preventDefault();
+  e.hidden = true; b.disabled = true;
+  try {
+    const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-cot': '1' },
+      body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { location.href = '/portal/'; return; }
+    e.textContent = j.error || 'Login failed. Try again.'; e.hidden = false;
+  } catch { e.textContent = "Can't reach the server. Check your connection and try again."; e.hidden = false; }
+  b.disabled = false;
+});
+</script>
+</body>
+</html>

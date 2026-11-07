@@ -1,0 +1,13 @@
+[Unit]
+Description=go2rtc video relay (Cop On Top)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=cotportal
+ExecStart=/usr/local/bin/go2rtc -config /etc/go2rtc/go2rtc.yaml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

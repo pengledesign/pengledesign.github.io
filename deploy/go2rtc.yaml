@@ -1,0 +1,9 @@
+api:
+  listen: "127.0.0.1:1984"
+rtsp:
+  listen: ""
+webrtc:
+  listen: ""
+log:
+  level: info
+streams: {}

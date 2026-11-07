@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Portal Setup · Cop On Top</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Saira:wght@600;700&display=swap">
+<link rel="stylesheet" href="/portal/portal.css">
+</head>
+<body>
+<main class="auth">
+  <form class="card" id="f" novalidate>
+    <div style="height:60px" aria-hidden="true"></div>
+    <img class="peek" src="/img/mascot-peek.png" alt="">
+    <h1>Set up the portal</h1>
+    <p class="sub">Create the first admin account. You only do this once.</p>
+    <label for="c">Setup code<input id="c" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+      <span class="hint">It was shown in the server console when the install finished.</span></label>
+    <label for="n">Your name<input id="n" autocomplete="name" required></label>
+    <label for="u">Username<input id="u" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label for="p">Password<input id="p" type="password" autocomplete="new-password" minlength="10" required>
+      <span class="hint">At least 10 characters.</span></label>
+    <label for="p2">Password again<input id="p2" type="password" autocomplete="new-password" required></label>
+    <p class="err" id="e" hidden></p>
+    <button class="btn btn-blue" id="b" type="submit">Create admin account</button>
+  </form>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+$('f').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const e = $('e'); e.hidden = true;
+  if ($('p').value !== $('p2').value) { e.textContent = "The two passwords don't match."; e.hidden = false; return; }
+  $('b').disabled = true;
+  try {
+    const r = await fetch('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-cot': '1' },
+      body: JSON.stringify({ code: $('c').value, name: $('n').value, username: $('u').value, password: $('p').value }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) {
+      await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-cot': '1' },
+        body: JSON.stringify({ username: $('u').value, password: $('p').value }) });
+      location.href = '/portal/admin'; return;
+    }
+    e.textContent = j.error || 'Setup failed.'; e.hidden = false;
+  } catch { e.textContent = "Can't reach the server."; e.hidden = false; }
+  $('b').disabled = false;
+});
+</script>
+</body>
+</html>

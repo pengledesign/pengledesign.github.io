@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Manage Portal · Cop On Top</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Saira:wght@600;700&display=swap">
+<link rel="stylesheet" href="/portal/portal.css">
+</head>
+<body class="admin">
+<header class="topbar">
+  <a class="logo" href="/" title="Back to the website"><img src="/img/logo-h-rev.png" alt="Cop On Top"></a>
+  <div class="who">
+    <span class="role">Admin</span>
+    <a href="/portal/">View cameras</a>
+    <button type="button" id="logout">Log out</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- CAMERAS -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Cameras</h2>
+      <button class="btn btn-blue btn-sm" id="addCam" type="button">+ Add camera</button>
+    </div>
+    <p class="lede">Each camera on a tower. The address and ports come from the tower's Milesight router.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Camera</th><th>Site</th><th>Address</th><th>PTZ</th><th>Portal login</th><th></th></tr></thead>
+      <tbody id="camRows"></tbody>
+    </table></div>
+    <form class="form" id="camForm" hidden novalidate>
+      <h3 id="camFormTitle">Add camera</h3>
+      <label for="cName">Camera name<input id="cName" placeholder="North gate" required></label>
+      <label for="cSite">Site or lot<input id="cSite" placeholder="Lot A" required></label>
+      <label for="cHost" class="full">Tower static IP<input id="cHost" placeholder="75.122.251.0" inputmode="decimal" required>
+        <span class="hint">Just the number. No http:// and no port.</span></label>
+      <label for="cWeb">Web port<input id="cWeb" inputmode="numeric" placeholder="92" required></label>
+      <label for="cRtsp">Video (RTSP) port<input id="cRtsp" inputmode="numeric" placeholder="2554" required></label>
+      <label for="cUser">Camera username<input id="cUser" value="webportal" autocapitalize="none" spellcheck="false"></label>
+      <label for="cPass">Camera password<input id="cPass" type="password" autocomplete="new-password">
+        <span class="hint" id="cPassHint">The password for the webportal user on the camera.</span></label>
+      <label class="check full" for="cPtz"><input type="checkbox" id="cPtz" checked> This camera can pan, tilt and zoom</label>
+      <details class="full"><summary class="hint" style="cursor:pointer">Advanced</summary>
+        <label for="cChan" style="margin-top:10px;max-width:220px">Stream channel<input id="cChan" inputmode="numeric" value="102">
+          <span class="hint">102 is the lower-data sub-stream. 101 is full quality.</span></label>
+      </details>
+      <div class="row-end">
+        <button class="btn btn-blue" type="submit" id="camSave">Save camera</button>
+        <button class="btn btn-line" type="button" id="camCancel">Cancel</button>
+        <p class="err" id="camErr" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <!-- USERS -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Client logins</h2>
+      <button class="btn btn-blue btn-sm" id="addUser" type="button">+ Add login</button>
+    </div>
+    <p class="lede">Give each client a login and pick which cameras they can see. Admins see every camera.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Name</th><th>Username</th><th>Access</th><th>Cameras</th><th></th></tr></thead>
+      <tbody id="userRows"></tbody>
+    </table></div>
+    <form class="form" id="userForm" hidden novalidate>
+      <h3 id="userFormTitle">Add login</h3>
+      <label for="uName">Name or company<input id="uName" placeholder="Desert Ridge Builders" required></label>
+      <label for="uUser">Username<input id="uUser" autocapitalize="none" spellcheck="false" placeholder="desertridge" required></label>
+      <label for="uPass">Password<input id="uPass" type="password" autocomplete="new-password">
+        <span class="hint" id="uPassHint">At least 10 characters. Share it with the client by phone.</span></label>
+      <label for="uRole">Access<select id="uRole"><option value="client">Client (only their cameras)</option><option value="admin">Admin (everything)</option></select></label>
+      <div class="full" id="uCamsWrap">
+        <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:var(--navy)">Cameras this client can see</p>
+        <div class="camchecks" id="uCams"></div>
+      </div>
+      <div class="row-end">
+        <button class="btn btn-blue" type="submit" id="userSave">Save login</button>
+        <button class="btn btn-line" type="button" id="userCancel">Cancel</button>
+        <p class="err" id="userErr" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <!-- MY PASSWORD -->
+  <section class="panel">
+    <h2>Your password</h2>
+    <form class="form" id="pwForm" novalidate>
+      <label for="pCur">Current password<input id="pCur" type="password" autocomplete="current-password"></label>
+      <label for="pNew">New password<input id="pNew" type="password" autocomplete="new-password"><span class="hint">At least 10 characters.</span></label>
+      <div class="row-end">
+        <button class="btn btn-blue" type="submit">Change password</button>
+        <p class="err" id="pwErr" hidden></p><p class="ok" id="pwOk" hidden>Password changed.</p>
+      </div>
+    </form>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const H = { 'Content-Type': 'application/json', 'x-cot': '1' };
+let data = { cameras: [], users: [], me: '' }, editCam = null, editUser = null;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function call(method, url, body) {
+  const r = await fetch(url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { location.href = '/portal/login'; throw new Error('login'); }
+  if (!r.ok) throw new Error(j.error || 'Something went wrong.');
+  return j;
+}
+async function load() { data = await call('GET', '/api/admin/data'); render(); }
+
+function render() {
+  const cr = $('camRows');
+  cr.innerHTML = data.cameras.length ? '' : '<tr><td colspan="6" class="hint">No cameras yet. Click "Add camera".</td></tr>';
+  for (const c of data.cameras) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${esc(c.name)}</strong></td><td>${esc(c.site)}</td>
+      <td class="num">${esc(c.host)} · web ${c.webPort} · video ${c.rtspPort}</td>
+      <td>${c.ptz ? 'Yes' : 'No'}</td>
+      <td>${c.hasPass ? '<span class="pill yes">Set</span>' : '<span class="pill no">Missing</span>'}</td>
+      <td><div class="acts"><button class="btn btn-line btn-sm" data-a="test">Test</button><button class="btn btn-line btn-sm" data-a="edit">Edit</button><button class="btn btn-danger btn-sm" data-a="del">Delete</button></div><div class="test-out"></div></td>`;
+    tr.querySelector('[data-a="edit"]').onclick = () => openCam(c);
+    tr.querySelector('[data-a="del"]').onclick = async () => {
+      if (!confirm(`Delete the camera "${c.name}"? Clients will lose access to it.`)) return;
+      await call('DELETE', '/api/admin/cameras?id=' + encodeURIComponent(c.id)); load();
+    };
+    tr.querySelector('[data-a="test"]').onclick = async (ev) => {
+      const out = tr.querySelector('.test-out'); ev.target.disabled = true; out.textContent = 'Testing…';
+      try {
+        const t = await call('POST', '/api/admin/test', { id: c.id });
+        const bits = [t.web ? '✅ web port open' : '❌ web port closed', t.video ? '✅ video port open' : '❌ video port closed',
+          t.login === 'ok' ? '✅ login works' : t.login === 'rejected' ? '❌ camera rejected the login' : t.login === 'skipped' ? '' : '⚠️ login check: ' + t.login];
+        out.innerHTML = bits.filter(Boolean).join('<br>');
+      } catch (e) { out.textContent = e.message; }
+      ev.target.disabled = false;
+    };
+    cr.appendChild(tr);
+  }
+
+  const ur = $('userRows'); ur.innerHTML = '';
+  for (const u of data.users) {
+    const n = u.role === 'admin' ? 'All' : (u.cameras || []).length;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${esc(u.name)}</strong>${u.id === data.me ? ' <span class="hint">(you)</span>' : ''}</td><td>${esc(u.username)}</td>
+      <td><span class="pill ${u.role === 'admin' ? 'admin' : ''}">${u.role === 'admin' ? 'Admin' : 'Client'}</span></td><td class="num">${n}</td>
+      <td><div class="acts"><button class="btn btn-line btn-sm" data-a="edit">Edit</button>${u.id === data.me ? '' : '<button class="btn btn-danger btn-sm" data-a="del">Delete</button>'}</div></td>`;
+    tr.querySelector('[data-a="edit"]').onclick = () => openUser(u);
+    const d = tr.querySelector('[data-a="del"]');
+    if (d) d.onclick = async () => {
+      if (!confirm(`Delete the login "${u.username}"? They won't be able to log in anymore.`)) return;
+      await call('DELETE', '/api/admin/users?id=' + encodeURIComponent(u.id)); load();
+    };
+    ur.appendChild(tr);
+  }
+}
+
+// ---------- camera form
+function openCam(c) {
+  editCam = c || null;
+  $('camFormTitle').textContent = c ? 'Edit ' + c.name : 'Add camera';
+  $('cName').value = c ? c.name : ''; $('cSite').value = c ? c.site : '';
+  $('cHost').value = c ? c.host : (data.cameras[0] ? data.cameras[0].host : '');
+  $('cWeb').value = c ? c.webPort : ''; $('cRtsp').value = c ? c.rtspPort : '';
+  $('cUser').value = c ? c.camUser : 'webportal'; $('cPass').value = '';
+  $('cPassHint').textContent = c && c.hasPass ? 'Leave blank to keep the current password.' : 'The password for the webportal user on the camera.';
+  $('cPtz').checked = c ? c.ptz : true; $('cChan').value = c ? c.channel : 102;
+  $('camErr').hidden = true; $('camForm').hidden = false; $('cName').focus();
+}
+$('addCam').onclick = () => openCam(null);
+$('camCancel').onclick = () => { $('camForm').hidden = true; };
+$('camForm').onsubmit = async ev => {
+  ev.preventDefault(); $('camErr').hidden = true; $('camSave').disabled = true;
+  try {
+    await call('POST', '/api/admin/cameras', { id: editCam && editCam.id, name: $('cName').value, site: $('cSite').value, host: $('cHost').value,
+      webPort: $('cWeb').value, rtspPort: $('cRtsp').value, camUser: $('cUser').value, camPass: $('cPass').value, ptz: $('cPtz').checked, channel: $('cChan').value });
+    $('camForm').hidden = true; await load();
+  } catch (e) { $('camErr').textContent = e.message; $('camErr').hidden = false; }
+  $('camSave').disabled = false;
+};
+
+// ---------- user form
+function openUser(u) {
+  editUser = u || null;
+  $('userFormTitle').textContent = u ? 'Edit ' + u.name : 'Add login';
+  $('uName').value = u ? u.name : ''; $('uUser').value = u ? u.username : ''; $('uPass').value = '';
+  $('uPassHint').textContent = u ? 'Leave blank to keep their current password.' : 'At least 10 characters. Share it with the client by phone.';
+  $('uRole').value = u ? u.role : 'client';
+  const box = $('uCams'); box.innerHTML = '';
+  if (!data.cameras.length) box.innerHTML = '<span class="hint">Add cameras first.</span>';
+  for (const c of data.cameras) {
+    const l = document.createElement('label'); l.className = 'check';
+    l.innerHTML = '<input type="checkbox"> <span></span>';
+    l.querySelector('input').value = c.id;
+    l.querySelector('input').checked = !!(u && (u.cameras || []).includes(c.id));
+    l.querySelector('span').textContent = c.site + ' · ' + c.name;
+    box.appendChild(l);
+  }
+  syncRole(); $('userErr').hidden = true; $('userForm').hidden = false; $('uName').focus();
+}
+function syncRole() { $('uCamsWrap').hidden = $('uRole').value === 'admin'; }
+$('uRole').onchange = syncRole;
+$('addUser').onclick = () => openUser(null);
+$('userCancel').onclick = () => { $('userForm').hidden = true; };
+$('userForm').onsubmit = async ev => {
+  ev.preventDefault(); $('userErr').hidden = true; $('userSave').disabled = true;
+  try {
+    const cams = [...$('uCams').querySelectorAll('input:checked')].map(i => i.value);
+    await call('POST', '/api/admin/users', { id: editUser && editUser.id, name: $('uName').value, username: $('uUser').value, password: $('uPass').value, role: $('uRole').value, cameras: cams });
+    $('userForm').hidden = true; await load();
+  } catch (e) { $('userErr').textContent = e.message; $('userErr').hidden = false; }
+  $('userSave').disabled = false;
+};
+
+// ---------- my password
+$('pwForm').onsubmit = async ev => {
+  ev.preventDefault(); $('pwErr').hidden = true; $('pwOk').hidden = true;
+  try { await call('POST', '/api/password', { current: $('pCur').value, next: $('pNew').value }); $('pwForm').reset(); $('pwOk').hidden = false; }
+  catch (e) { $('pwErr').textContent = e.message; $('pwErr').hidden = false; }
+};
+
+$('logout').onclick = async () => { await fetch('/api/logout', { method: 'POST', headers: H }); location.href = '/portal/login'; };
+load();
+</script>
+</body>
+</html>
