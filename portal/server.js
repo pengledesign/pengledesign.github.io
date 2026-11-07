@@ -247,7 +247,16 @@ async function api(req, res, u, url) {
     let r;
     if (b.action === 'move') { r = await ptzMove(c, lim(b.pan), lim(b.tilt), lim(b.zoom)); armWatchdog(c); }
     else if (b.action === 'stop') { clearTimeout(ptzTimers.get(c.id)); r = await ptzMove(c, 0, 0, 0); }
-    else if (b.action === 'home') r = await isapi(c, 'PUT', '/ISAPI/PTZCtrl/channels/1/homeposition/goto');
+    else if (b.action === 'home') {
+      r = await isapi(c, 'PUT', '/ISAPI/PTZCtrl/channels/1/homeposition/goto');
+      if (r.status !== 200) r = await isapi(c, 'PUT', '/ISAPI/PTZCtrl/channels/1/presets/1/goto');
+      if (r.status !== 200 && r.status !== 401 && r.status !== 0) return send(res, 400, { error: u.role === 'admin' ? 'No Home position saved yet. Point the camera, then click "Save this view as Home".' : 'No Home position is set on this camera yet.' });
+    }
+    else if (b.action === 'sethome') {
+      if (u.role !== 'admin') return send(res, 403, { error: 'Admins only.' });
+      r = await isapi(c, 'PUT', '/ISAPI/PTZCtrl/channels/1/homeposition');
+      if (r.status !== 200) return send(res, 400, { error: r.status === 401 || r.status === 403 ? "The camera's webportal user isn't allowed to save Home. Set it in the camera's own PTZ settings instead." : 'The camera refused to save Home (code ' + r.status + ').' });
+    }
     else return send(res, 400, { error: 'Unknown action.' });
     if (r.status === 200) return send(res, 200, { ok: true });
     return send(res, 502, { error: r.status === 401 ? 'The camera rejected the portal login.' : r.status === 0 ? "Can't reach the camera." : 'The camera refused that command.' });

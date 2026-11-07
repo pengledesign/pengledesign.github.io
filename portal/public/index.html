@@ -31,41 +31,38 @@
         <div><p id="camSite">&nbsp;</p><h1 id="camName">Loading…</h1></div>
         <span class="live idle" id="live"><i></i><span id="liveTxt">Connecting</span></span>
       </div>
-      <div class="viewer" id="viewer">
-        <div class="overlay" id="ov"><div><div class="spinner"></div><strong>Connecting</strong>Starting the live feed…</div></div>
-      </div>
-      <div class="controls" id="ptz" hidden>
-        <div class="ctl">
-          <h2>PAN &amp; TILT</h2>
-          <div class="dpad">
-            <span></span>
-            <button class="pbtn" data-dir="up" aria-label="Tilt up"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
-            <span></span>
-            <button class="pbtn" data-dir="left" aria-label="Pan left"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-            <button class="pbtn" id="home" aria-label="Go to home position">HOME</button>
-            <button class="pbtn" data-dir="right" aria-label="Pan right"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-            <span></span>
-            <button class="pbtn" data-dir="down" aria-label="Tilt down"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-            <span></span>
+      <div class="stage-body">
+        <div class="viewer" id="viewer">
+          <div class="overlay" id="ov"><div><div class="spinner"></div><strong>Connecting</strong>Starting the live feed…</div></div>
+        </div>
+        <div class="rail">
+          <div class="ctl" id="ptz" hidden>
+            <h2>MOVE &amp; ZOOM</h2>
+            <div class="dpad">
+              <span></span>
+              <button class="pbtn" data-dir="up" aria-label="Tilt up"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+              <span></span>
+              <button class="pbtn" data-dir="left" aria-label="Pan left"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button class="pbtn" id="home" aria-label="Go to home position">HOME</button>
+              <button class="pbtn" data-dir="right" aria-label="Pan right"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+              <span></span>
+              <button class="pbtn" data-dir="down" aria-label="Tilt down"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+              <span></span>
+            </div>
+            <div class="zoom">
+              <button class="pbtn" data-dir="zout" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg><span>Out</span></button>
+              <button class="pbtn" data-dir="zin" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>In</span></button>
+            </div>
+            <div class="speed">
+              <div class="row"><span>Move speed</span><span id="speedVal">3</span></div>
+              <input type="range" id="speed" min="1" max="5" value="3" aria-label="Move speed">
+            </div>
+            <p class="keys">Hold a button to move. Keyboard: <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> move, <kbd>+</kbd><kbd>−</kbd> zoom</p>
+            <p class="ptz-msg" id="ptzMsg" role="status"></p>
+            <button class="btn btn-line btn-sm rail-btn" type="button" id="setHome" hidden>Save this view as Home</button>
           </div>
+          <button class="btn btn-line rail-btn" type="button" id="fs">Full screen</button>
         </div>
-        <div class="ctl">
-          <h2>ZOOM</h2>
-          <div class="zoom">
-            <button class="pbtn" data-dir="zout" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-            <button class="pbtn" data-dir="zin" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-          </div>
-        </div>
-        <div class="ctl speed">
-          <h2>MOVE SPEED</h2>
-          <input type="range" id="speed" min="1" max="5" value="3" aria-label="Move speed">
-          <div class="row"><span>Slow</span><span>Fast</span></div>
-          <p class="keys">Hold a button to move.<br>Keyboard: <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> move, <kbd>+</kbd><kbd>−</kbd> zoom</p>
-          <p class="ptz-msg" id="ptzMsg"></p>
-        </div>
-      </div>
-      <div class="controls">
-        <button class="btn btn-line" type="button" id="fs" style="color:var(--p-text);border-color:var(--p-line)">Full screen</button>
       </div>
     </section>
   </div>
@@ -82,7 +79,7 @@ async function init() {
   const me = await fetch('/api/me').then(r => r.ok ? r.json() : null);
   if (!me) { location.href = '/portal/login'; return; }
   $('name').textContent = me.name;
-  if (me.role === 'admin') { $('role').hidden = false; $('adminLink').hidden = false; }
+  if (me.role === 'admin') { $('role').hidden = false; $('adminLink').hidden = false; $('setHome').hidden = false; }
   cams = await fetch('/api/cameras').then(r => r.json());
   renderList();
   if (!cams.length) {
@@ -178,8 +175,8 @@ function vec(dir) {
 async function ptz(body) {
   try {
     const r = await fetch('/api/ptz', { method: 'POST', headers: H, body: JSON.stringify(Object.assign({ cam: cur.id }, body)) });
-    if (!r.ok) { const j = await r.json().catch(() => ({})); $('ptzMsg').textContent = j.error || 'Camera control failed.'; }
-    else $('ptzMsg').textContent = '';
+    if (!r.ok) { const j = await r.json().catch(() => ({})); $('ptzMsg').textContent = j.error || 'Camera control failed.'; return false; }
+    $('ptzMsg').textContent = ''; return true;
   } catch { $('ptzMsg').textContent = "Can't reach the server."; }
 }
 function startMove(dir, btn) {
@@ -203,6 +200,12 @@ document.querySelectorAll('[data-dir]').forEach(b => {
   b.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' ') stopMove(); });
 });
 $('home').addEventListener('click', () => ptz({ action: 'home' }));
+$('setHome').addEventListener('click', async () => {
+  if (!confirm('Save where this camera is pointing now as its Home position?')) return;
+  await ptz({ action: 'sethome' });
+  if (!$('ptzMsg').textContent) $('ptzMsg').textContent = 'Home position saved.';
+});
+$('speed').addEventListener('input', () => { $('speedVal').textContent = $('speed').value; });
 const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', '+': 'zin', '=': 'zin', '-': 'zout', '_': 'zout' };
 let held = null;
 addEventListener('keydown', e => {
