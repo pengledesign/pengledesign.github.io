@@ -134,9 +134,9 @@ td.num{font-variant-numeric:tabular-nums;color:var(--secure)}
 .pill.admin{background:#FFFBD6;color:#6B6200}
 .pill.yes{background:#E3F6EE;color:var(--ok)}
 .pill.no{background:#FEF3F2;color:var(--bad)}
-.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;background:var(--secure-xlt);border-radius:6px;padding:20px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:14px 16px;background:var(--secure-xlt);border-radius:6px;padding:20px}
 .form .full{grid-column:1/-1}
-.form h3{grid-column:1/-1;font-size:16px;color:var(--navy)}
+.form h3{grid-column:1/-1;align-self:start;font-size:16px;color:var(--navy)}
 .form .row-end{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .check{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--ink)}
 .check input{width:18px;height:18px;padding:0;accent-color:var(--police)}

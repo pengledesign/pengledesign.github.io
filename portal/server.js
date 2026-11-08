@@ -151,7 +151,7 @@ function digestHeader(h, method, uri, user, pass) {
   return out;
 }
 function isapi(c, method, uri, body) {
-  if (c.cookie) return plainReq(c.host, c.webPort, method, uri, body, c.cookie);
+  if (c.sess) return plainReq(c.host, c.webPort, method, uri, body, c.sess);
   return new Promise((resolve) => {
     const go = (auth) => {
       const headers = {};
@@ -205,11 +205,13 @@ const setTag = (x, tag, val) => x.replace(new RegExp('(<' + tag + '(?:\\s[^>]*)?
 const okXml = r => r.status === 200 && !/<statusCode>(?!1<)\d+</.test(r.body);
 const errText = r => r.status === 0 ? "can't reach the camera" : r.status === 401 ? 'admin password was rejected' : (xmlVal(r.body, 'subStatusCode') || xmlVal(r.body, 'statusString') || 'HTTP ' + r.status);
 
-function plainReq(host, p, method, uri, body, cookie) {
+// sess = { cookie, tag } from sessionLogin(). Newer firmware uses a SessionTag header instead of a cookie.
+function plainReq(host, p, method, uri, body, sess) {
   return new Promise(resolve => {
     const headers = {};
     if (body) { headers['Content-Type'] = 'application/xml'; headers['Content-Length'] = Buffer.byteLength(body); }
-    if (cookie) headers.Cookie = cookie;
+    if (sess && sess.cookie) headers.Cookie = sess.cookie;
+    if (sess && sess.tag) headers.SessionTag = sess.tag;
     const r = http.request({ host, port: p, method, path: uri, headers, timeout: 8000 }, res => {
       let d = ''; res.on('data', x => d += x);
       res.on('end', () => resolve({ status: res.statusCode, body: d, cookies: [].concat(res.headers['set-cookie'] || []) }));
@@ -277,6 +279,7 @@ async function sessionLogin(host, p, user, pw) {
   let body = `<SessionLogin><userName>${xmlEsc(user)}</userName><password>${encodePwd(pw, o, irr)}</password><sessionID>${sid}</sessionID>`;
   const ver = xmlVal(cap.body, 'sessionIDVersion');
   if (ver) body += `<isSessionIDValidLongTerm>false</isSessionIDValidLongTerm><sessionIDVersion>${ver}</sessionIDVersion>`;
+  if (xmlVal(cap.body, 'isSupportSessionTag') === 'true') body += '<isNeedSessionTag>true</isNeedSessionTag>';
   body += '</SessionLogin>';
   const r = await plainReq(host, p, 'POST', '/ISAPI/Security/sessionLogin?timeStamp=' + Date.now(), body);
   if (!okXml(r)) {
@@ -285,7 +288,7 @@ async function sessionLogin(host, p, user, pw) {
     return { ok: false, why: (r.status === 401 ? 'password rejected' : 'web login ' + errText(r)) + lock + left };
   }
   const cookie = r.cookies.map(c => c.split(';')[0]).join('; ');
-  return { ok: true, cookie };
+  return { ok: true, sess: { cookie, tag: xmlVal(r.body, 'sessionTag') } };
 }
 
 // Log in as admin: try Digest first, then the camera web page's own session login.
@@ -296,7 +299,7 @@ async function adminConnect(host, webPort, pass) {
   if (info.status !== 401) return { ok: false, status: info.status, why: errText(info) };
   const s = await sessionLogin(host, webPort, 'admin', pass);
   if (!s.ok) return { ok: false, status: 401, why: s.why };
-  c.cookie = s.cookie;
+  c.sess = s.sess;
   const info2 = await isapi(c, 'GET', '/ISAPI/System/deviceInfo');
   if (info2.status === 200) return { ok: true, c, info: info2 };
   return { ok: false, status: info2.status, why: 'logged in, but the camera still refused: ' + errText(info2) };
@@ -366,7 +369,7 @@ async function setupWebUser(c, adminPass, finalPass) {
   const aSess = await sessionLogin(c.host, c.webPort, 'admin', adminPass);
   diag.push('admin web login ' + (aSess.ok ? 'ok' : 'failed (' + aSess.why + ')'));
   let ctx = null, wc0 = c;
-  for (const [label, client] of [['digest', c], ['session', aSess.ok ? { host: c.host, webPort: c.webPort, cookie: aSess.cookie } : null]]) {
+  for (const [label, client] of [['digest', c], ['session', aSess.ok ? { host: c.host, webPort: c.webPort, sess: aSess.sess } : null]]) {
     if (!client || ctx) continue;
     const k = await secCtx(client, 'admin', adminPass);
     if (!k) { diag.push(label + ': no key'); continue; }
@@ -374,7 +377,7 @@ async function setupWebUser(c, adminPass, finalPass) {
     else diag.push(label + ': key not verified');
   }
   if (!ctx) {
-    if (aSess.ok) plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, aSess.cookie);
+    if (aSess.ok) plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, aSess.sess);
     return [{ label: 'Website login', ok: false, detail: 'stopped before changing anything: ' + diag.join('; ') }];
   }
   let iv = newIv(), r;
@@ -384,7 +387,7 @@ async function setupWebUser(c, adminPass, finalPass) {
     r = await isapi(wc0, 'POST', '/ISAPI/Security/users' + secQ(ctx, iv), userXmlSec(ctx, iv, id, 'webportal', adminPass, temp, 'false'));
     if (okXml(r)) { const again = await isapi(c, 'GET', '/ISAPI/Security/users'); const b = (again.body.match(/<User[\s>][\s\S]*?<\/User>/g) || []).find(b => xmlVal(b, 'userName') === 'webportal'); u = b ? { id: Number(xmlVal(b, 'id')), inherent: xmlVal(b, 'inherent') } : { id, inherent: 'false' }; }
   }
-  if (aSess.ok) plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, aSess.cookie);
+  if (aSess.ok) plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, aSess.sess);
   if (!okXml(r)) return [{ label: 'Website login', ok: false, detail: (u ? 'update' : 'create') + ' failed: ' + errText(r) }];
   steps.push({ label: 'Website login (webportal)', ok: true, detail: (ctx ? 'encrypted' : 'plain') + ' · ' + diag.join('; ') });
 
@@ -405,12 +408,12 @@ async function setupWebUser(c, adminPass, finalPass) {
   if (!ctx) { steps.push({ label: 'Activate login', ok: false, detail: 'skipped to avoid lockout (encryption could not be verified): ' + diag.join('; ') }); return steps; }
   const s = await sessionLogin(c.host, c.webPort, 'webportal', temp);
   if (!s.ok) { steps.push({ label: 'Activate login', ok: false, detail: s.why }); return steps; }
-  const wc = { host: c.host, webPort: c.webPort, cookie: s.cookie };
+  const wc = { host: c.host, webPort: c.webPort, sess: s.sess };
   const wctx = ctx ? await secCtx(wc, 'webportal', temp) : null;
   iv = newIv();
   const ch = await isapi(wc, 'PUT', '/ISAPI/Security/users/' + u.id + secQ(wctx, iv), userXmlSec(wctx, iv, u.id, 'webportal', temp, finalPass, u.inherent));
   steps.push({ label: 'Activate login', ok: okXml(ch), detail: okXml(ch) ? 'done' : errText(ch) });
-  plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, s.cookie);
+  plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, s.sess);
   return steps;
 }
 
