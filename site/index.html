@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>Cop On Top</title>
-<meta name="description" content="Solar-powered surveillance towers for construction sites and parking lots. Live professional monitoring, month to month, no contracts.">
+<meta name="description" content="Solar-powered surveillance towers for construction sites and parking lots. Live view, instant alerts, and optional live monitoring. Month to month, no contracts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Saira:wght@600;700;800&display=swap">
@@ -263,6 +263,20 @@ form.qf{background:#fff;color:var(--ink);border-radius:6px;padding:32px;display:
 .qf .submit{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
 .qf .submit small{color:var(--secure);font-size:13px}
 .qf .ok{grid-column:1/-1;background:var(--secure-xlt);border-left:4px solid var(--police);padding:14px 16px;border-radius:0 4px 4px 0;font-size:14.5px}
+.qf .chk{display:flex;gap:12px;align-items:flex-start;font-size:15px;letter-spacing:0;border:1.5px solid var(--secure-lt);border-radius:4px;padding:14px;cursor:pointer}
+.qf .chk input{width:20px;height:20px;flex:none;margin-top:1px;accent-color:var(--police)}
+.qf .chk small{font-weight:500;color:var(--secure);font-size:13px}
+.qsum{background:var(--secure-xlt);border-radius:4px;padding:16px 18px;display:grid;gap:8px;font-size:14.5px}
+.qsum .r{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.qsum .r b{color:var(--navy)}
+.qsum .muted{color:var(--secure)} .qsum .muted b{color:var(--secure);font-weight:500}
+.qsum .big{border-top:1px solid var(--secure-lt);padding-top:10px;margin-top:2px;font:700 22px var(--f-display);color:var(--navy);text-transform:uppercase}
+.pk .price strong small{font:600 13px var(--f-body);text-transform:none;color:var(--secure);margin-left:2px}
+.addon{margin-top:28px;display:flex;gap:24px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--secure-xlt);border-left:5px solid var(--police);border-radius:0 6px 6px 0;padding:24px 28px}
+.addon>div{flex:1 1 420px}
+.addon h3{margin:4px 0 8px;font-size:22px;color:var(--navy)}
+.addon p{margin:0;color:var(--secure)}
+.addon .eyebrow{color:var(--police)}
 @media (max-width:900px){.q-grid{grid-template-columns:1fr;gap:36px}}
 @media (max-width:560px){form.qf{grid-template-columns:1fr;padding:22px}.seg{grid-template-columns:1fr}}
 
@@ -436,7 +450,7 @@ html,body{height:100%}
         </div>
         <div class="item">
           <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-          <div><h3>Live monitoring</h3><p>Our team watches your site, included in every package.</p></div>
+          <div><h3>Monitoring, your call</h3><p>Alerts go to your crew for free, or add our team to watch it live.</p></div>
         </div>
         <div class="item">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
@@ -460,7 +474,7 @@ html,body{height:100%}
           </div>
           <ul class="nc-points">
             <li>Monthly rental. No term commitment and no long-term agreement.</li>
-            <li>Professional monitoring included in every package, not sold as an add-on.</li>
+            <li>Monitoring is optional. Let your own super get the alerts and keep the savings, or add our team for $175.</li>
             <li>Add or remove towers as the job grows or wraps up.</li>
           </ul>
         </div>
@@ -469,10 +483,11 @@ html,body{height:100%}
           <dl>
             <div class="row"><dt>Billing</dt><dd>Monthly</dd></div>
             <div class="row"><dt>Long-term contract</dt><dd class="strike">12 months</dd></div>
-            <div class="row"><dt>Monitoring</dt><dd>Included</dd></div>
+            <div class="row"><dt>Live monitoring</dt><dd>Optional · $175</dd></div>
             <div class="row"><dt>Live view &amp; playback</dt><dd>Included</dd></div>
             <div class="row"><dt>Power</dt><dd>Solar, on board</dd></div>
-            <div class="row"><dt>Pricing</dt><dd>Quoted per site</dd></div>
+            <div class="row"><dt>Price</dt><dd>$911 / tower / month</dd></div>
+            <div class="row"><dt>Arizona delivery &amp; setup</dt><dd>Free</dd></div>
           </dl>
           <div class="stamp">No contract</div>
           <p class="foot">Coverage anywhere in the U.S. Based in Phoenix, Arizona.</p>
@@ -490,9 +505,9 @@ html,body{height:100%}
         </div>
         <div class="inc-grid">
           <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="6"/><circle cx="12" cy="10" r="2.5"/><path d="M8 20h8M12 16v4"/></svg></div><h3>Dual PTZ cameras</h3><p>Two pan-tilt-zoom cameras per mast that can turn, tilt, and zoom in on what's happening.</p></div>
-          <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Professional monitoring</h3><p>Our own team watches your site live and acts the moment something looks wrong.</p></div>
+          <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Live monitoring (optional)</h3><p>Want someone else to lose sleep over it? Add our team and they watch live and get police rolling.</p></div>
           <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><path d="M3.05 11a9 9 0 1 1 .5 4M3 4v7h7"/></svg></div><h3>Recorded playback</h3><p>Footage is recorded so incidents can be reviewed after the fact.</p></div>
-          <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 11v2a2 2 0 0 0 2 2h2l5 4V5L7 9H5a2 2 0 0 0-2 2z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg></div><h3>Speaker on the mast</h3><p>A speaker lets the monitoring team warn people off before anything gets taken.</p></div>
+          <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 11v2a2 2 0 0 0 2 2h2l5 4V5L7 9H5a2 2 0 0 0-2 2z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg></div><h3>Speaker on the mast</h3><p>A speaker lets you, or our monitoring team, warn people off before anything gets taken.</p></div>
           <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div><h3>Police dispatched</h3><p>When our team sees a real threat on camera, police are sent to your site.</p></div>
           <div class="inc"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M10 8.5l4 2.5-4 2.5z"/></svg></div><h3>Your own live view</h3><p>Log in from your phone or computer to watch and steer your cameras any time.</p></div>
         </div>
@@ -511,7 +526,7 @@ html,body{height:100%}
         <ol class="steps">
           <li><h3>Tell us about your site</h3><p>Send a quote request or call. We'll talk through the site, the trouble spots, and how many towers it takes.</p></li>
           <li><h3>We drop and set up</h3><p>We deliver the tower, level it, aim the cameras, and get it online. No power hookup needed.</p></li>
-          <li><h3>We watch. You can too.</h3><p>Our team monitors live. You get a login to see your cameras from anywhere.</p></li>
+          <li><h3>We watch. You can too.</h3><p>Alerts hit your phone, or our team if you add monitoring. Plus a login to see your cameras from anywhere.</p></li>
           <li><h3>Done? We pick it up.</h3><p>When the job wraps, let us know. No contract to break and no buyout.</p></li>
         </ol>
       </div>
@@ -523,7 +538,7 @@ html,body{height:100%}
         <div class="sec-head">
           <p class="eyebrow">Packages</p>
           <h2>Pick your <em>coverage.</em></h2>
-          <p>Every package includes the same full service. The only thing that changes is how many towers are watching.</p>
+          <p>Every tower is $911 a month, no contract. Delivery, setup and pickup are free in Arizona. The only thing that changes is how many towers are watching.</p>
         </div>
         <div class="pk-grid">
           <article class="pk">
@@ -534,11 +549,11 @@ html,body{height:100%}
               <p class="fit">One entrance, a small lot, or a tight job site.</p>
               <ul>
                 <li>2 PTZ cameras</li>
-                <li>Professional live monitoring</li>
+                <li>Instant alerts to your crew</li>
                 <li>Recorded playback</li>
                 <li>Client live-view login</li>
               </ul>
-              <div class="price"><div><span>Monthly · no contract</span><strong>Call for a quote</strong></div><a class="btn btn-outline" href="#quote" data-towers="1">Quote</a></div>
+              <div class="price"><div><span>Monthly · no contract</span><strong>$911<small>/mo</small></strong></div><a class="btn btn-outline" href="#quote" data-towers="1">Build quote</a></div>
             </div>
           </article>
           <article class="pk featured">
@@ -549,11 +564,11 @@ html,body{height:100%}
               <p class="fit">Covers a full construction site or a lot with two access points.</p>
               <ul>
                 <li>4 PTZ cameras</li>
-                <li>Professional live monitoring</li>
+                <li>Instant alerts to your crew</li>
                 <li>Recorded playback</li>
                 <li>Client live-view login</li>
               </ul>
-              <div class="price"><div><span>Monthly · no contract</span><strong>Call for a quote</strong></div><a class="btn btn-blue" href="#quote" data-towers="2">Quote</a></div>
+              <div class="price"><div><span>Monthly · no contract</span><strong>$1,822<small>/mo</small></strong></div><a class="btn btn-blue" href="#quote" data-towers="2">Build quote</a></div>
             </div>
           </article>
           <article class="pk">
@@ -564,13 +579,17 @@ html,body{height:100%}
               <p class="fit">Large sites, multiple lots, or several jobs at once.</p>
               <ul>
                 <li>6+ PTZ cameras</li>
-                <li>Professional live monitoring</li>
+                <li>Instant alerts to your crew</li>
                 <li>Recorded playback</li>
                 <li>One login for every site</li>
               </ul>
-              <div class="price"><div><span>Monthly · no contract</span><strong>Call for a quote</strong></div><a class="btn btn-outline" href="#quote" data-towers="3+">Quote</a></div>
+              <div class="price"><div><span>Monthly · no contract</span><strong>$911<small>/tower/mo</small></strong></div><a class="btn btn-outline" href="#quote" data-towers="3">Build quote</a></div>
             </div>
           </article>
+        </div>
+        <div class="addon">
+          <div><p class="eyebrow">Optional add-on · $175</p><h3>Want someone else to lose sleep over it?</h3><p>Add live monitoring and our team watches your site and gets police rolling. Or skip it, save the money, and alerts go straight to your superintendent's phone. Your site, your call.</p></div>
+          <a class="btn btn-blue" href="#quote" data-mon="1">Add monitoring</a>
         </div>
         <p class="pk-note">Not sure how many you need? Call <strong>602-699-4400</strong> and we'll size it with you.</p>
       </div>
@@ -588,7 +607,7 @@ html,body{height:100%}
             <div class="bg"></div><div class="ov"></div>
             <div class="txt">
               <h3>Construction sites</h3>
-              <p>Copper, tools, and equipment walk off open sites every night. A visible tower and a monitoring team stop it before it starts.</p>
+              <p>Copper, tools, and equipment walk off open sites every night. A visible tower and instant alerts stop it before it starts.</p>
               <div class="tags"><span>Equipment yards</span><span>Laydown areas</span><span>Gates</span></div>
             </div>
           </article>
@@ -658,7 +677,7 @@ html,body{height:100%}
           <div class="sec-head" style="margin-bottom:24px">
             <p class="eyebrow" style="color:var(--lime)">Get a quote</p>
             <h2>Let's get your site <em>covered.</em></h2>
-            <p>Tell us a little about the site and we'll get back to you with pricing. Or skip the form and call.</p>
+            <p>Build your quote right here and see your price instantly. We'll email you a copy, and you're never on the hook. Or skip it and call.</p>
           </div>
           <div class="contact-list">
             <div class="c"><span>HQ</span><a href="tel:+16026994400">602-699-4400</a></div>
@@ -671,7 +690,7 @@ html,body{height:100%}
           <label>Company<input id="q-company" name="company" autocomplete="organization"></label>
           <label>Phone<input id="q-phone" name="phone" type="tel" autocomplete="tel" required></label>
           <label>Email<input id="q-email" name="email" type="email" autocomplete="email" required></label>
-          <label>Site city &amp; state<input id="q-loc" name="location" placeholder="Phoenix, AZ"></label>
+          <label>Site city<input id="q-loc" name="location" placeholder="Phoenix"></label>
           <label>Type of site
             <select id="q-type" name="type">
               <option>Construction site</option>
@@ -679,24 +698,18 @@ html,body{height:100%}
               <option>Other</option>
             </select>
           </label>
-          <fieldset class="full">
-            <legend>How many towers?</legend>
-            <div class="seg">
-              <input type="radio" name="towers" id="t1" value="1"><label for="t1">1 tower</label>
-              <input type="radio" name="towers" id="t2" value="2" checked><label for="t2">2 towers</label>
-              <input type="radio" name="towers" id="t3" value="3+"><label for="t3">3+ towers</label>
-            </div>
-          </fieldset>
-          <label>Start date<input id="q-date" name="start" type="date"></label>
-          <label>How long (roughly)?
-            <select id="q-len" name="length">
-              <option>Not sure yet</option><option>1–3 months</option><option>3–6 months</option><option>6–12 months</option><option>Over a year</option>
-            </select>
+          <label>How many towers?<input id="q-towers" name="towers" type="number" min="1" max="50" value="2" inputmode="numeric"></label>
+          <label>How many months?<input id="q-months" name="months" type="number" min="1" max="36" value="3" inputmode="numeric"></label>
+          <label>Where's the site?
+            <select id="q-state" name="state"><option value="AZ">Arizona</option><option value="out">Outside Arizona</option></select>
           </label>
+          <label>Start date<input id="q-date" name="start" type="date"></label>
+          <label class="full chk"><input type="checkbox" id="q-mon" name="monitoring"> <span>Add live monitoring (+$175 per tower, per month)<br><small>Skip it and alerts go to your own crew.</small></span></label>
+          <div class="full qsum" id="qsum" aria-live="polite"></div>
           <label class="full">Anything we should know?<textarea id="q-notes" name="notes" placeholder="Gate locations, past break-ins, site size…"></textarea></label>
           <div class="full submit">
-            <small>We'll reply by phone or email. No obligation.</small>
-            <button class="btn btn-lime" type="submit">Request my quote <span class="arrow">→</span></button>
+            <small>We'll email you this quote. No obligation.</small>
+            <button class="btn btn-lime" type="submit">Email me my quote <span class="arrow">→</span></button>
           </div>
           <div class="ok" id="quoteOk" hidden></div>
         </form>
@@ -708,7 +721,7 @@ html,body{height:100%}
     <div class="wrap">
       <div>
         <img src="img/logo-h-rev.png" alt="Cop On Top" width="900" height="196">
-        <p>Solar-powered surveillance towers with live professional monitoring. Month to month, no contract. Based in Phoenix, Arizona, serving customers nationwide.</p>
+        <p>Solar-powered surveillance towers with live view, instant alerts, and optional live monitoring. Month to month, no contract. Based in Phoenix, Arizona, serving customers nationwide.</p>
       </div>
       <div>
         <h4>Site</h4>
@@ -847,20 +860,37 @@ html,body{height:100%}
   menuBtn.addEventListener('click',function(){var o=nav.classList.toggle('open');menuBtn.setAttribute('aria-expanded',o)});
   nav.addEventListener('click',function(e){if(e.target.tagName==='A'){nav.classList.remove('open');menuBtn.setAttribute('aria-expanded','false')}});
 
-  /* Package buttons preselect tower count */
-  document.querySelectorAll('[data-towers]').forEach(function(a){a.addEventListener('click',function(){
-    var v=a.getAttribute('data-towers');var r=document.querySelector('input[name="towers"][value="'+v+'"]');if(r)r.checked=true;})});
-
-  /* Quote form (not wired to email yet) */
-  var qf=document.getElementById('quoteForm'),qok=document.getElementById('quoteOk');
+  /* Quote builder */
+  var PRICE=911, MON=175;
+  var qf=document.getElementById('quoteForm'),qok=document.getElementById('quoteOk'),qsum=document.getElementById('qsum');
+  var $=function(id){return document.getElementById(id)};
+  var money=function(n){return '$'+n.toLocaleString('en-US')};
+  var clampN=function(el,min,max){var n=parseInt(el.value,10);return isNaN(n)?min:Math.min(max,Math.max(min,n))};
+  function quote(){
+    var t=clampN($('q-towers'),1,50),m=clampN($('q-months'),1,36),mon=$('q-mon').checked,az=$('q-state').value==='AZ';
+    var per=t*PRICE+(mon?t*MON:0);
+    return {t:t,m:m,mon:mon,az:az,per:per,total:per*m};
+  }
+  function renderQuote(){
+    var q=quote();
+    qsum.innerHTML='<div class="r"><span>'+q.t+' tower'+(q.t>1?'s':'')+' × '+money(PRICE)+'</span><b>'+money(q.t*PRICE)+'/mo</b></div>'+
+      (q.mon?'<div class="r"><span>Live monitoring × '+q.t+'</span><b>'+money(q.t*MON)+'/mo</b></div>':'<div class="r muted"><span>Live monitoring</span><b>Skipped · alerts go to your crew</b></div>')+
+      '<div class="r"><span>Delivery, setup &amp; pickup</span><b>'+(q.az?'Free':'We\'ll quote it')+'</b></div>'+
+      '<div class="r big"><span>Monthly</span><b>'+money(q.per)+'</b></div>'+
+      '<div class="r"><span>'+q.m+' month'+(q.m>1?'s':'')+' total</span><b>'+money(q.total)+(q.az?'':' + delivery')+'</b></div>';
+  }
+  ['q-towers','q-months','q-state','q-mon'].forEach(function(id){$(id).addEventListener('input',renderQuote);$(id).addEventListener('change',renderQuote)});
+  renderQuote();
+  document.querySelectorAll('[data-towers]').forEach(function(a){a.addEventListener('click',function(){$('q-towers').value=a.getAttribute('data-towers');renderQuote()})});
+  document.querySelectorAll('[data-mon]').forEach(function(a){a.addEventListener('click',function(){$('q-mon').checked=true;renderQuote()})});
   qf.addEventListener('submit',function(e){
     e.preventDefault();
     var missing=[];
-    [['q-name','your name'],['q-phone','a phone number'],['q-email','an email']].forEach(function(f){var el=document.getElementById(f[0]);if(!el.value.trim())missing.push(f[1])});
+    [['q-name','your name'],['q-phone','a phone number'],['q-email','an email']].forEach(function(f){if(!$(f[0]).value.trim())missing.push(f[1])});
     qok.hidden=false;
-    if(missing.length){qok.textContent='Please add '+missing.join(', ')+' so we can reach you.';return}
-    var t=(qf.querySelector('input[name="towers"]:checked')||{}).value||'';
-    qok.textContent='Preview only: this form isn\'t connected yet. Once the site is live, this request ('+t+' tower'+(t==='1'?'':'s')+') will go straight to support@cop-on-top.com.';
+    if(missing.length){qok.textContent='Please add '+missing.join(', ')+' so we can send your quote.';return}
+    var q=quote();
+    qok.textContent='Your quote: '+money(q.per)+' a month for '+q.t+' tower'+(q.t>1?'s':'')+(q.mon?' with live monitoring':'')+'. Email delivery is being connected, so for now we\'ll reach out at '+$('q-email').value.trim()+'.';
   });
 
   /* Login */
