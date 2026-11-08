@@ -361,18 +361,32 @@ async function setupWebUser(c, adminPass, finalPass) {
   let u = parsed.find(x => x.name === 'webportal');
   const temp = 'Tmp' + crypto.randomBytes(6).toString('hex') + 'x9Q';
 
-  // Encrypt like the camera's own page, if the camera uses that scheme (checked first).
-  let ctx = await secCtx(c, 'admin', adminPass);
-  if (ctx && !(await verifySec(c, ctx, 'admin'))) ctx = null;
+  // Work out how this camera wants user passwords sent, and prove it before changing anything.
+  const diag = [];
+  const aSess = await sessionLogin(c.host, c.webPort, 'admin', adminPass);
+  diag.push('admin web login ' + (aSess.ok ? 'ok' : 'failed (' + aSess.why + ')'));
+  let ctx = null, wc0 = c;
+  for (const [label, client] of [['digest', c], ['session', aSess.ok ? { host: c.host, webPort: c.webPort, cookie: aSess.cookie } : null]]) {
+    if (!client || ctx) continue;
+    const k = await secCtx(client, 'admin', adminPass);
+    if (!k) { diag.push(label + ': no key'); continue; }
+    if (await verifySec(client, k, 'admin')) { ctx = k; wc0 = client; diag.push(label + ': encryption verified'); }
+    else diag.push(label + ': key not verified');
+  }
+  if (!ctx) {
+    if (aSess.ok) plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, aSess.cookie);
+    return [{ label: 'Website login', ok: false, detail: 'stopped before changing anything: ' + diag.join('; ') }];
+  }
   let iv = newIv(), r;
-  if (u) r = await isapi(c, 'PUT', '/ISAPI/Security/users/' + u.id + secQ(ctx, iv), userXmlSec(ctx, iv, u.id, 'webportal', adminPass, temp, u.inherent));
+  if (u) r = await isapi(wc0, 'PUT', '/ISAPI/Security/users/' + u.id + secQ(ctx, iv), userXmlSec(ctx, iv, u.id, 'webportal', adminPass, temp, u.inherent));
   else {
     const used = new Set(parsed.map(x => x.id)); let id = 2; while (used.has(id)) id++;
-    r = await isapi(c, 'POST', '/ISAPI/Security/users' + secQ(ctx, iv), userXmlSec(ctx, iv, id, 'webportal', adminPass, temp, 'false'));
+    r = await isapi(wc0, 'POST', '/ISAPI/Security/users' + secQ(ctx, iv), userXmlSec(ctx, iv, id, 'webportal', adminPass, temp, 'false'));
     if (okXml(r)) { const again = await isapi(c, 'GET', '/ISAPI/Security/users'); const b = (again.body.match(/<User[\s>][\s\S]*?<\/User>/g) || []).find(b => xmlVal(b, 'userName') === 'webportal'); u = b ? { id: Number(xmlVal(b, 'id')), inherent: xmlVal(b, 'inherent') } : { id, inherent: 'false' }; }
   }
+  if (aSess.ok) plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, aSess.cookie);
   if (!okXml(r)) return [{ label: 'Website login', ok: false, detail: (u ? 'update' : 'create') + ' failed: ' + errText(r) }];
-  steps.push({ label: 'Website login (webportal)', ok: true, detail: (ctx ? 'encrypted, ' : '') + 'ready' });
+  steps.push({ label: 'Website login (webportal)', ok: true, detail: (ctx ? 'encrypted' : 'plain') + ' · ' + diag.join('; ') });
 
   // Permissions: live view + PTZ only.
   const perms = await isapi(c, 'GET', '/ISAPI/Security/UserPermission');
@@ -388,6 +402,7 @@ async function setupWebUser(c, adminPass, finalPass) {
   } else steps.push({ label: 'Permissions (live view + PTZ only)', ok: false, detail: 'could not read (not critical)' });
 
   // Activate: log in once as webportal and set the real password, like the camera's login page does.
+  if (!ctx) { steps.push({ label: 'Activate login', ok: false, detail: 'skipped to avoid lockout (encryption could not be verified): ' + diag.join('; ') }); return steps; }
   const s = await sessionLogin(c.host, c.webPort, 'webportal', temp);
   if (!s.ok) { steps.push({ label: 'Activate login', ok: false, detail: s.why }); return steps; }
   const wc = { host: c.host, webPort: c.webPort, cookie: s.cookie };
