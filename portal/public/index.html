@@ -29,8 +29,15 @@
     <section class="stage">
       <div class="stage-head">
         <div><p id="camSite">&nbsp;</p><h1 id="camName">Loading…</h1></div>
-        <span class="live idle" id="live"><i></i><span id="liveTxt">Connecting</span></span>
+        <div class="head-right">
+          <div class="quality" id="quality" role="group" aria-label="Video quality" hidden>
+            <button type="button" data-q="sd" aria-pressed="true">Standard</button>
+            <button type="button" data-q="hd" aria-pressed="false">HD</button>
+          </div>
+          <span class="live idle" id="live"><i></i><span id="liveTxt">Connecting</span></span>
+        </div>
       </div>
+      <p class="hd-note" id="hdNote" hidden>HD uses about 3 times the data. It switches back to Standard in <span id="hdLeft">5:00</span>.</p>
       <div class="stage-body">
         <div class="viewer" id="viewer">
           <div class="overlay" id="ov"><div><div class="spinner"></div><strong>Connecting</strong>Starting the live feed…</div></div>
@@ -72,6 +79,8 @@ const $ = id => document.getElementById(id);
 const H = { 'Content-Type': 'application/json', 'x-cot': '1' };
 const IDLE_MS = 10 * 60 * 1000;
 let cams = [], cur = null, player = null, playTimer = 0, lastActive = Date.now();
+const HD_MS = 5 * 60 * 1000;
+let quality = 'sd', hdUntil = 0;
 
 const ico = '<svg viewBox="0 0 24 24"><path d="M3 7h12v10H3z"/><path d="M15 10l6-3v10l-6-3"/></svg>';
 
@@ -128,7 +137,7 @@ function startPlayer() {
   const v = document.createElement('video-stream');
   v.mode = 'mse';
   $('viewer').prepend(v);
-  v.src = new URL('/api/ws?cam=' + encodeURIComponent(cur.id), location.href);
+  v.src = new URL('/api/ws?cam=' + encodeURIComponent(cur.id) + (quality === 'hd' ? '&q=hd' : ''), location.href);
   player = v;
   const vid = v.video;
   if (vid) {
@@ -149,6 +158,8 @@ function select(c) {
   $('camName').textContent = c.name;
   $('camSite').textContent = c.site;
   $('ptz').hidden = !c.ptz;
+  $('quality').hidden = !c.hd;
+  setQuality('sd', false);
   $('ptzMsg').textContent = '';
   renderList();
   lastActive = Date.now();
@@ -160,11 +171,31 @@ function select(c) {
 setInterval(() => {
   if (player && Date.now() - lastActive > IDLE_MS) {
     stopPlayer();
+    if (quality === 'hd') setQuality('sd', false);
     overlay('<strong>Paused</strong>The feed pauses after 10 minutes to save the tower\'s data.<br><button class="btn btn-lime" id="resume">Resume live view</button>');
     setLive('idle', 'Paused');
     $('resume').onclick = () => { lastActive = Date.now(); startPlayer(); };
   }
 }, 15000);
+
+// ---------- quality switch (Standard by default; HD reverts after 5 minutes)
+function setQuality(q, restart = true) {
+  quality = q === 'hd' && cur && cur.hd ? 'hd' : 'sd';
+  hdUntil = quality === 'hd' ? Date.now() + HD_MS : 0;
+  document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', b.dataset.q === quality ? 'true' : 'false'));
+  $('hdNote').hidden = quality !== 'hd';
+  tickHd();
+  if (restart) { lastActive = Date.now(); startPlayer(); }
+}
+function tickHd() {
+  if (!hdUntil) return;
+  const left = hdUntil - Date.now();
+  if (left <= 0) { setQuality('sd'); return; }
+  const m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
+  $('hdLeft').textContent = m + ':' + String(sec).padStart(2, '0');
+}
+setInterval(tickHd, 1000);
+document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { if (b.dataset.q !== quality) setQuality(b.dataset.q); }));
 
 // ---------- PTZ
 let moveTimer = 0, moveDir = null, activeBtn = null;

@@ -46,6 +46,8 @@
       <details class="full"><summary class="hint" style="cursor:pointer">Advanced</summary>
         <label for="cChan" style="margin-top:10px;max-width:220px">Stream channel<input id="cChan" inputmode="numeric" value="102">
           <span class="hint">102 is the lower-data sub-stream. 101 is full quality.</span></label>
+        <label for="cHd" style="margin-top:10px;max-width:220px">HD stream channel<input id="cHd" inputmode="numeric" placeholder="103">
+          <span class="hint">The camera stream to use for the HD button. Must be H.264. Leave blank for no HD button.</span></label>
       </details>
       <div class="row-end">
         <button class="btn btn-blue" type="submit" id="camSave">Save camera</button>
@@ -121,7 +123,7 @@ function render() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><strong>${esc(c.name)}</strong></td><td>${esc(c.site)}</td>
       <td class="num">${esc(c.host)} · web ${c.webPort} · video ${c.rtspPort}</td>
-      <td>${c.ptz ? 'Yes' : 'No'}</td>
+      <td>${c.ptz ? 'Yes' : 'No'}${c.hdChannel ? ' · <span class="pill yes">HD</span>' : ''}</td>
       <td>${c.hasPass ? '<span class="pill yes">Set</span>' : '<span class="pill no">Missing</span>'}</td>
       <td><div class="acts"><button class="btn btn-line btn-sm" data-a="test">Test</button><button class="btn btn-line btn-sm" data-a="edit">Edit</button><button class="btn btn-danger btn-sm" data-a="del">Delete</button></div><div class="test-out"></div></td>`;
     tr.querySelector('[data-a="edit"]').onclick = () => openCam(c);
@@ -168,7 +170,7 @@ function openCam(c) {
   $('cWeb').value = c ? c.webPort : ''; $('cRtsp').value = c ? c.rtspPort : '';
   $('cUser').value = c ? c.camUser : 'webportal'; $('cPass').value = '';
   $('cPassHint').textContent = c && c.hasPass ? 'Leave blank to keep the current password.' : 'The password for the webportal user on the camera.';
-  $('cPtz').checked = c ? c.ptz : true; $('cChan').value = c ? c.channel : 102;
+  $('cPtz').checked = c ? c.ptz : true; $('cChan').value = c ? c.channel : 102; $('cHd').value = c && c.hdChannel ? c.hdChannel : '';
   $('camErr').hidden = true; $('camForm').hidden = false; $('cName').focus();
 }
 $('addCam').onclick = () => openCam(null);
@@ -177,7 +179,7 @@ $('camForm').onsubmit = async ev => {
   ev.preventDefault(); $('camErr').hidden = true; $('camSave').disabled = true;
   try {
     await call('POST', '/api/admin/cameras', { id: editCam && editCam.id, name: $('cName').value, site: $('cSite').value, host: $('cHost').value,
-      webPort: $('cWeb').value, rtspPort: $('cRtsp').value, camUser: $('cUser').value, camPass: $('cPass').value, ptz: $('cPtz').checked, channel: $('cChan').value });
+      webPort: $('cWeb').value, rtspPort: $('cRtsp').value, camUser: $('cUser').value, camPass: $('cPass').value, ptz: $('cPtz').checked, channel: $('cChan').value, hdChannel: $('cHd').value });
     $('camForm').hidden = true; await load();
   } catch (e) { $('camErr').textContent = e.message; $('camErr').hidden = false; }
   $('camSave').disabled = false;

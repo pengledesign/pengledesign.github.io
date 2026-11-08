@@ -79,8 +79,8 @@ function readJson(req) {
   });
 }
 const publicUser = u => ({ id: u.id, name: u.name, username: u.username, role: u.role, cameras: u.cameras || [] });
-const publicCam = c => ({ id: c.id, name: c.name, site: c.site, ptz: !!c.ptz });
-const adminCam = c => ({ id: c.id, name: c.name, site: c.site, host: c.host, webPort: c.webPort, rtspPort: c.rtspPort, channel: c.channel, ptz: !!c.ptz, camUser: c.camUser, hasPass: !!c.camPass });
+const publicCam = c => ({ id: c.id, name: c.name, site: c.site, ptz: !!c.ptz, hd: !!c.hdChannel });
+const adminCam = c => ({ id: c.id, name: c.name, site: c.site, host: c.host, webPort: c.webPort, rtspPort: c.rtspPort, channel: c.channel, hdChannel: c.hdChannel || null, ptz: !!c.ptz, camUser: c.camUser, hasPass: !!c.camPass });
 function camsFor(u) {
   return u.role === 'admin' ? db.cameras : db.cameras.filter(c => (u.cameras || []).includes(c.id));
 }
@@ -98,20 +98,34 @@ function g2r(method, p) {
     r.end();
   });
 }
-function rtspUrl(c) {
+function rtspUrl(c, ch) {
   const auth = c.camUser ? encodeURIComponent(c.camUser) + ':' + encodeURIComponent(c.camPass || '') + '@' : '';
-  return `rtsp://${auth}${c.host}:${c.rtspPort}/Streaming/Channels/${c.channel || 102}`;
+  return `rtsp://${auth}${c.host}:${c.rtspPort}/Streaming/Channels/${ch}`;
+}
+// Each camera gets a standard stream (id) and, if set, an HD stream (id_hd).
+// go2rtc only pulls from the camera while someone is watching that stream.
+function streamDefs(c) {
+  const d = { [c.id]: rtspUrl(c, c.channel || 102) };
+  if (c.hdChannel) d[c.id + '_hd'] = rtspUrl(c, c.hdChannel);
+  return d;
 }
 async function pushStream(c) {
   await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(c.id));
-  return g2r('PUT', '/api/streams?name=' + encodeURIComponent(c.id) + '&src=' + encodeURIComponent(rtspUrl(c)));
+  await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(c.id + '_hd'));
+  for (const [name, src] of Object.entries(streamDefs(c))) {
+    await g2r('PUT', '/api/streams?name=' + encodeURIComponent(name) + '&src=' + encodeURIComponent(src));
+  }
 }
 async function syncStreams(force) {
   const r = await g2r('GET', '/api/streams');
   if (r.status !== 200) return false;
   let have = {}; try { have = JSON.parse(r.body) || {}; } catch {}
-  for (const c of db.cameras) if (force || !have[c.id]) await pushStream(c);
-  for (const name of Object.keys(have)) if (!db.cameras.find(c => c.id === name)) await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(name));
+  const want = new Set();
+  for (const c of db.cameras) {
+    const names = Object.keys(streamDefs(c)); names.forEach(n => want.add(n));
+    if (force || names.some(n => !have[n])) await pushStream(c);
+  }
+  for (const name of Object.keys(have)) if (!want.has(name)) await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(name));
   return true;
 }
 (async function initialSync() {
@@ -281,7 +295,7 @@ async function api(req, res, u, url) {
     const cam = existing || { id: newId('c_') };
     Object.assign(cam, {
       name: clean(b.name) || 'Camera', site: clean(b.site) || 'Site', host, webPort, rtspPort,
-      channel: port(b.channel) || 102, ptz: !!b.ptz, camUser: clean(b.camUser, 40),
+      channel: port(b.channel) || 102, hdChannel: port(b.hdChannel), ptz: !!b.ptz, camUser: clean(b.camUser, 40),
     });
     if (b.camPass) cam.camPass = String(b.camPass).slice(0, 100);
     if (!existing) db.cameras.push(cam);
@@ -293,7 +307,7 @@ async function api(req, res, u, url) {
     const id = url.searchParams.get('id');
     db.cameras = db.cameras.filter(c => c.id !== id);
     db.users.forEach(x => { x.cameras = (x.cameras || []).filter(cid => cid !== id); });
-    saveDb(); await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(id));
+    saveDb(); await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(id)); await g2r('DELETE', '/api/streams?src=' + encodeURIComponent(id + '_hd'));
     return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/test' && m === 'POST') {
@@ -399,9 +413,10 @@ server.on('upgrade', (req, socket, head) => {
   const u = currentUser(req);
   const cam = u && url.pathname === '/api/ws' ? camsFor(u).find(c => c.id === url.searchParams.get('cam')) : null;
   if (!cam) { socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
+  const src = url.searchParams.get('q') === 'hd' && cam.hdChannel ? cam.id + '_hd' : cam.id;
   const up = net.connect(G2R.port, G2R.host, () => {
     const skip = new Set(['cookie', 'origin', 'host']);
-    let raw = `GET /api/ws?src=${encodeURIComponent(cam.id)} HTTP/1.1\r\nHost: ${G2R.host}:${G2R.port}\r\n`;
+    let raw = `GET /api/ws?src=${encodeURIComponent(src)} HTTP/1.1\r\nHost: ${G2R.host}:${G2R.port}\r\n`;
     for (let i = 0; i < req.rawHeaders.length; i += 2) {
       if (!skip.has(req.rawHeaders[i].toLowerCase())) raw += `${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}\r\n`;
     }
