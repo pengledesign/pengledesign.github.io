@@ -2538,3 +2538,39 @@ section,
 @media (min-width: 768px) {
   .page-title .title-wrapper .project-title-row { width: max-content; max-width: calc(100vw - 48px); }
 }
+
+/* My role chips on project pages */
+.page-title .title-wrapper .project-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; list-style: none; padding: 0; margin: 1.1rem 0 0; }
+.page-title .title-wrapper .project-roles li { padding: 4px 12px; border: 2px solid var(--heading-color); border-radius: 999px; background: #fff; box-shadow: 2px 2px 0 var(--heading-color); font-size: 13px; font-weight: 600; color: var(--heading-color); line-height: 1.3; }
+.page-title .title-wrapper .project-roles li.label { border: 0; box-shadow: none; background: none; padding: 0 4px 0 0; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-color); font-weight: 500; }
+
+/* The Hunt: full piece + detail shots side by side, process row */
+.project-gallery--hunt { display: block; }
+.hunt-hero { display: grid; grid-template-columns: 42fr 29fr 29fr; grid-template-rows: 1fr 1fr; gap: 20px; }
+.hunt-hero .hunt-full { grid-column: 1; grid-row: 1 / 3; }
+.hunt-hero .hunt-d1 { grid-column: 2 / 4; grid-row: 1; }
+.hunt-hero .hunt-d2 { grid-column: 2; grid-row: 2; }
+.hunt-hero .hunt-d3 { grid-column: 3; grid-row: 2; }
+.hunt-hero .hunt-d { position: relative; min-height: 0; }
+.hunt-hero .hunt-d img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.project-gallery--hunt .gallery-heading { margin: 64px 0 20px; }
+.project-gallery--hunt .gallery-heading .project-label { display: block; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-color); margin-bottom: 4px; }
+.project-gallery--hunt .gallery-heading h2 { font-family: var(--heading-font); text-transform: uppercase; font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0; }
+.hunt-process { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: center; }
+.hunt-process .project-shot { background: #fff; }
+@media (max-width: 767.98px) {
+  .hunt-hero { grid-template-columns: 1fr 1fr; grid-template-rows: auto; gap: 12px; }
+  .hunt-hero .hunt-full, .hunt-hero .hunt-d1 { grid-column: 1 / 3; grid-row: auto; }
+  .hunt-hero .hunt-d2, .hunt-hero .hunt-d3 { grid-column: auto; grid-row: auto; }
+  .hunt-hero .hunt-d img { position: static; aspect-ratio: 3 / 4; }
+  .hunt-hero .hunt-d1 img { aspect-ratio: 1400 / 892; }
+  .hunt-process { grid-template-columns: 1fr; gap: 12px; }
+  .project-gallery--hunt .gallery-heading { margin: 40px 0 14px; }
+  .page-title .title-wrapper .project-roles li { font-size: 11.5px; padding: 3px 9px; }
+}
+
+/* Tall shots: keep them within one screen on desktop */
+@media (min-width: 768px) {
+  .project-gallery .project-shot.is-portrait { justify-self: center; width: fit-content; }
+  .project-gallery .project-shot.is-portrait img { max-height: 86vh; width: auto; }
+}
