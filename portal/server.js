@@ -151,6 +151,7 @@ function digestHeader(h, method, uri, user, pass) {
   return out;
 }
 function isapi(c, method, uri, body) {
+  if (c.cookie) return plainReq(c.host, c.webPort, method, uri, body, c.cookie);
   return new Promise((resolve) => {
     const go = (auth) => {
       const headers = {};
@@ -238,9 +239,27 @@ async function sessionLogin(host, p, user, pw) {
   if (ver) body += `<isSessionIDValidLongTerm>false</isSessionIDValidLongTerm><sessionIDVersion>${ver}</sessionIDVersion>`;
   body += '</SessionLogin>';
   const r = await plainReq(host, p, 'POST', '/ISAPI/Security/sessionLogin?timeStamp=' + Date.now(), body);
-  if (!okXml(r)) return { ok: false, why: 'web login ' + errText(r) };
+  if (!okXml(r)) {
+    const lock = xmlVal(r.body, 'lockStatus') === 'lock' ? ' (account locked' + (xmlVal(r.body, 'unlockTime') ? ' for ' + xmlVal(r.body, 'unlockTime') + 's' : '') + ')' : '';
+    const left = xmlVal(r.body, 'retryLoginTime') ? ', ' + xmlVal(r.body, 'retryLoginTime') + ' tries left' : '';
+    return { ok: false, why: (r.status === 401 ? 'password rejected' : 'web login ' + errText(r)) + lock + left };
+  }
   const cookie = r.cookies.map(c => c.split(';')[0]).join('; ');
   return { ok: true, cookie };
+}
+
+// Log in as admin: try Digest first, then the camera web page's own session login.
+async function adminConnect(host, webPort, pass) {
+  const c = { host, webPort, camUser: 'admin', camPass: pass };
+  const info = await isapi(c, 'GET', '/ISAPI/System/deviceInfo');
+  if (info.status === 200) return { ok: true, c, info };
+  if (info.status !== 401) return { ok: false, status: info.status, why: errText(info) };
+  const s = await sessionLogin(host, webPort, 'admin', pass);
+  if (!s.ok) return { ok: false, status: 401, why: s.why };
+  c.cookie = s.cookie;
+  const info2 = await isapi(c, 'GET', '/ISAPI/System/deviceInfo');
+  if (info2.status === 200) return { ok: true, c, info: info2 };
+  return { ok: false, status: info2.status, why: 'logged in, but the camera still refused: ' + errText(info2) };
 }
 
 async function scanTower(host, adminPass, extra) {
@@ -257,10 +276,12 @@ async function scanTower(host, adminPass, extra) {
   }
   const found = [];
   for (const webPort of open) {
-    const c = { host, webPort, camUser: 'admin', camPass: adminPass };
-    const info = await isapi(c, 'GET', '/ISAPI/System/deviceInfo');
-    if (info.status === 401) { found.push({ webPort, error: 'Found a camera here, but the admin password was rejected.' }); continue; }
-    if (info.status !== 200 || !/<DeviceInfo/i.test(info.body)) continue;
+    const probe = await plainReq(host, webPort, 'GET', '/ISAPI/System/deviceInfo');
+    if (probe.status !== 401 && probe.status !== 200) continue;
+    const con = await adminConnect(host, webPort, adminPass);
+    if (!con.ok) { found.push({ webPort, error: 'Found a camera here, but admin login failed: ' + con.why }); continue; }
+    const c = con.c, info = con.info;
+    if (!/<DeviceInfo/i.test(info.body)) continue;
     const item = { webPort, model: xmlVal(info.body, 'model'), deviceName: xmlVal(info.body, 'deviceName'), serial: xmlVal(info.body, 'serialNumber'), type: xmlVal(info.body, 'deviceType') };
     const acc = await isapi(c, 'GET', '/ISAPI/Security/adminAccesses');
     const m = acc.body.match(/<protocol>RTSP<\/protocol>\s*<portNo>(\d+)<\/portNo>/i);
@@ -337,12 +358,13 @@ async function setupCamera(b) {
   const host = clean(b.host, 100), webPort = port(b.webPort), rtspPort = port(b.rtspPort);
   const steps = [];
   if (!host || !webPort || !rtspPort) return { steps: [{ label: 'Check details', ok: false, detail: 'missing IP or ports' }] };
-  const admin = { host, webPort, camUser: 'admin', camPass: String(b.adminPass || '') };
   let portalPass = String(b.portalPass || '');
   let hd = null;
+  let admin = null;
   if (b.configure) {
-    const info = await isapi(admin, 'GET', '/ISAPI/System/deviceInfo');
-    if (info.status !== 200) return { steps: [{ label: 'Connect as admin', ok: false, detail: errText(info) }] };
+    const con = await adminConnect(host, webPort, String(b.adminPass || ''));
+    if (!con.ok) return { steps: [{ label: 'Connect as admin', ok: false, detail: con.why }] };
+    admin = con.c;
     const s1 = await configStream(admin, 102, { kbps: 512, fps: 15, gop: 30 });
     steps.push({ label: 'Standard stream', ok: s1.ok, detail: s1.detail });
     const s2 = await configStream(admin, 103, { kbps: 2048, fps: 10, gop: 20, width: 1920, height: 1080 });
