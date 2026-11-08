@@ -2578,3 +2578,27 @@ section,
   .project-gallery .project-shot.is-portrait { justify-self: center; width: fit-content; }
   .project-gallery .project-shot.is-portrait img { max-height: 86vh; width: auto; }
 }
+
+/* Section headings inside any project gallery */
+.project-gallery .gallery-heading { margin: 40px 0 0; }
+.project-gallery .gallery-heading .project-label { display: block; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-color); margin-bottom: 4px; }
+.project-gallery .gallery-heading h2 { font-family: var(--heading-font); text-transform: uppercase; font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0; }
+
+/* SSK: animated banners + print series */
+.banner-stack { display: grid; gap: 16px; }
+.project-gallery .project-video { cursor: default; background: #000; }
+.project-gallery .project-video video { display: block; width: 100%; height: auto; aspect-ratio: 970 / 250; }
+.print-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 767.98px) {
+  .banner-stack { gap: 10px; }
+  .print-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .print-row .project-shot:last-child { grid-column: 1 / 3; justify-self: center; width: calc(50% - 5px); }
+  .project-gallery .gallery-heading { margin-top: 24px; }
+}
+.mockup-row { display: grid; grid-template-columns: 1800fr 960fr; gap: 20px; align-items: stretch; }
+.mockup-row .project-shot img { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 767.98px) {
+  .mockup-row { grid-template-columns: 1fr; gap: 10px; }
+  .print-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .print-row .project-shot:last-child { grid-column: auto; width: auto; }
+}
