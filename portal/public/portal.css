@@ -186,3 +186,17 @@ dialog::backdrop{background:rgba(18,28,63,.55)}
 .toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--navy);color:#fff;font-weight:600;font-size:14px;padding:12px 18px;border-radius:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);z-index:50;max-width:calc(100vw - 32px)}
 .toast.bad{background:var(--bad)}
 @media (max-width:760px){.board{grid-template-columns:1fr}.pool{position:static}}
+
+/* ---------- add a tower ---------- */
+.panel-head .acts{display:flex;gap:8px;flex-wrap:wrap}
+.wizard{display:grid;gap:16px}
+.found{display:grid;gap:10px;background:var(--secure-xlt);border-radius:6px;padding:20px}
+.found h3,.tlog h3{font-size:16px;color:var(--navy)}
+.found-row{display:grid;grid-template-columns:auto minmax(0,1fr) 120px;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:6px;padding:12px}
+.found-row .check input{width:20px;height:20px}
+.fr-main{display:grid;gap:4px;min-width:0}
+.fr-main small{font-size:12.5px;color:var(--secure)}
+.fr-port{font-size:12px}
+.tlog{display:grid;gap:12px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:20px}
+.tlog-cam ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px;font-size:14px}
+@media (max-width:640px){.found-row{grid-template-columns:auto minmax(0,1fr)}.fr-port{grid-column:2}}

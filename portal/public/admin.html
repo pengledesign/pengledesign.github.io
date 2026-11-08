@@ -37,7 +37,7 @@
           <h3>+ New client</h3>
           <label for="nName">Business or name<input id="nName" placeholder="Desert Ridge Builders" required></label>
           <label for="nUser">Username<input id="nUser" autocapitalize="none" spellcheck="false" placeholder="desertridge" required></label>
-          <label for="nPass">Password<span class="pw-row"><input id="nPass" autocomplete="off" spellcheck="false" placeholder="At least 10 characters" required><button type="button" class="btn btn-line btn-sm" id="nGen">Make one</button></span></label>
+          <label for="nPass">Password<span class="pw-row"><input id="nPass" autocomplete="off" spellcheck="false" placeholder="At least 10 characters" required><button type="button" class="btn btn-line btn-sm" id="nGen">Random</button></span></label>
           <p class="err" id="nErr" hidden></p>
           <button class="btn btn-blue" type="submit" id="nSave">Create client</button>
           <p class="hint">Write the password down. You'll give it to the client by phone.</p>
@@ -50,9 +50,25 @@
   <section class="panel">
     <div class="panel-head">
       <h2>Camera setup</h2>
-      <button class="btn btn-blue btn-sm" id="addCam" type="button">+ Add camera</button>
+      <div class="acts"><button class="btn btn-blue btn-sm" id="addTower" type="button">+ Add a tower</button><button class="btn btn-line btn-sm" id="addCam" type="button">Add one camera manually</button></div>
     </div>
-    <p class="lede">Each camera on a tower. The address and ports come from the tower's Milesight router.</p>
+    <p class="lede">Use <b>Add a tower</b> to find and set up every camera on a tower automatically.</p>
+    <div class="wizard" id="tower" hidden>
+      <form id="towerForm" class="form" novalidate>
+        <h3>Add a tower</h3>
+        <label for="tHost">Tower static IP<input id="tHost" placeholder="75.122.251.0" inputmode="decimal" required><span class="hint">Just the number, from the Milesight or T-Mobile.</span></label>
+        <label for="tSite">Site name<input id="tSite" placeholder="Maricopa" required><span class="hint">Shown to clients above the camera names.</span></label>
+        <label for="tAdmin" class="full">Cameras' admin password<input id="tAdmin" type="password" autocomplete="off" required><span class="hint">The password you use to log in to the cameras as admin. Used once for setup and never saved.</span></label>
+        <label class="check full" for="tAuto"><input type="checkbox" id="tAuto" checked> Set up the cameras for the portal automatically (recommended)</label>
+        <label for="tPortal" class="full"><span id="tPortalLabel">Website camera password</span><span class="pw-row"><input id="tPortal" autocomplete="off" spellcheck="false"><button type="button" class="btn btn-line btn-sm" id="tGen">Random</button></span><span class="hint" id="tPortalHint">The portal uses this behind the scenes. You don't need to remember it.</span></label>
+        <details class="full"><summary class="hint" style="cursor:pointer">Advanced</summary>
+          <label for="tExtra" style="margin-top:10px">Extra web ports to check<input id="tExtra" placeholder="e.g. 8443, 9000"><span class="hint">The scan already checks 80–130 and 8080–8090.</span></label>
+        </details>
+        <div class="row-end"><button class="btn btn-blue" type="submit" id="tScan">Scan tower</button><button class="btn btn-line" type="button" id="tCancel">Cancel</button><p class="hint" id="tStatus"></p><p class="err" id="tErr" hidden></p></div>
+      </form>
+      <div id="towerFound" class="found" hidden></div>
+      <div id="towerLog" class="tlog" hidden></div>
+    </div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Camera</th><th>Site</th><th>Address</th><th>PTZ</th><th>Portal login</th><th></th></tr></thead>
       <tbody id="camRows"></tbody>
@@ -109,7 +125,7 @@
     <h3 id="eTitle">Edit client</h3>
     <label for="eName">Business or name<input id="eName" required></label>
     <label for="eUser">Username<input id="eUser" autocapitalize="none" spellcheck="false" required></label>
-    <label for="ePass">New password<span class="pw-row"><input id="ePass" autocomplete="off" spellcheck="false" placeholder="Leave blank to keep the current one"><button type="button" class="btn btn-line btn-sm" id="eGen">Make one</button></span></label>
+    <label for="ePass">New password<span class="pw-row"><input id="ePass" autocomplete="off" spellcheck="false" placeholder="Leave blank to keep the current one"><button type="button" class="btn btn-line btn-sm" id="eGen">Random</button></span></label>
     <label for="eRole">Access<select id="eRole"><option value="client">Client (only their cameras)</option><option value="admin">Admin (everything)</option></select></label>
     <p class="err" id="eErr" hidden></p>
     <div class="row-end"><button class="btn btn-blue" type="submit" id="eSave" value="save">Save</button><button class="btn btn-line" type="button" id="eCancel">Cancel</button></div>
@@ -269,6 +285,109 @@ function renderAdmins() {
   }
 }
 
+// ---------- add a tower
+const randPw = () => makePassword().replace(/-/g, '') + 'A9';
+function syncAuto() {
+  const auto = $('tAuto').checked;
+  $('tPortalLabel').textContent = auto ? 'Website camera password' : "The cameras' existing webportal password";
+  $('tPortalHint').textContent = auto ? "The portal uses this behind the scenes. You don't need to remember it." : 'Use this if the cameras were already set up by hand.';
+  $('tGen').hidden = !auto;
+  if (!auto) $('tPortal').value = '';
+  else if (!$('tPortal').value) $('tPortal').value = randPw();
+}
+$('tAuto').onchange = syncAuto;
+$('tGen').onclick = () => { $('tPortal').value = randPw(); };
+$('addTower').onclick = () => {
+  $('tower').hidden = false; $('towerFound').hidden = true; $('towerLog').hidden = true; $('towerForm').hidden = false;
+  if (!$('tHost').value && data.cameras[0]) $('tHost').value = data.cameras[0].host;
+  if (!$('tSite').value && data.cameras[0]) $('tSite').value = data.cameras[0].site;
+  syncAuto(); $('tAdmin').focus(); $('camForm').hidden = true;
+};
+$('tCancel').onclick = () => { $('tower').hidden = true; $('tAdmin').value = ''; };
+let scan = null;
+$('towerForm').onsubmit = async ev => {
+  ev.preventDefault(); $('tErr').hidden = true;
+  if ($('tPortal').value.length < 8) { $('tErr').textContent = 'The website camera password needs at least 8 characters.'; $('tErr').hidden = false; return; }
+  $('tScan').disabled = true; $('tStatus').textContent = 'Scanning the tower. This takes about 20–40 seconds…';
+  try {
+    scan = await call('POST', '/api/admin/scan', { host: $('tHost').value, adminPass: $('tAdmin').value, extraPorts: $('tExtra').value });
+    renderFound();
+  } catch (e) { $('tErr').textContent = e.message; $('tErr').hidden = false; }
+  $('tStatus').textContent = ''; $('tScan').disabled = false;
+};
+function renderFound() {
+  const box = $('towerFound'); box.hidden = false; box.innerHTML = '';
+  const cams = scan.found.filter(f => !f.error);
+  const errs = scan.found.filter(f => f.error);
+  const h = document.createElement('h3');
+  h.textContent = cams.length ? `Found ${cams.length} camera${cams.length === 1 ? '' : 's'} on ${$('tHost').value}` : 'No cameras found';
+  box.appendChild(h);
+  if (!cams.length && !errs.length) {
+    const p = document.createElement('p'); p.className = 'hint';
+    p.textContent = scan.open.length ? `Open ports: ${scan.open.join(', ')}, but none answered as a Hikvision camera with that admin password.` : 'Nothing answered. Check the IP, and that the tower is online.';
+    box.appendChild(p);
+  }
+  for (const f of errs) { const p = document.createElement('p'); p.className = 'err'; p.textContent = `Port ${f.webPort}: ${f.error}`; box.appendChild(p); }
+  cams.forEach((f, i) => {
+    const row = document.createElement('div'); row.className = 'found-row';
+    row.innerHTML = `<label class="check"><input type="checkbox" data-i="${i}"></label>
+      <div class="fr-main"><input class="fr-name" data-i="${i}" placeholder="Camera name, like North gate"><small></small></div>
+      <label class="fr-port">Video port<input class="fr-rtsp" data-i="${i}" inputmode="numeric"></label>`;
+    const cb = row.querySelector('input[type=checkbox]'); cb.checked = !f.existing;
+    const nm = row.querySelector('.fr-name'); nm.value = f.existing || '';
+    row.querySelector('.fr-rtsp').value = f.rtspPort || '';
+    const bits = [f.model || 'Camera', 'web ' + f.webPort, f.ptz ? 'PTZ' : 'fixed'];
+    if (!f.rtspPort) bits.push('⚠️ enter the video port');
+    else if (!f.rtspOpen) bits.push('⚠️ video port ' + f.rtspPort + " didn't answer. Check the port forward");
+    if (f.existing) bits.push('already in the portal as "' + f.existing + '"');
+    row.querySelector('small').textContent = bits.join(' · ');
+    box.appendChild(row);
+  });
+  if (cams.length) {
+    const go = document.createElement('div'); go.className = 'row-end';
+    go.innerHTML = '<button class="btn btn-blue" type="button" id="tGo">Set up selected cameras</button><button class="btn btn-line" type="button" id="tBack">Back</button>';
+    box.appendChild(go);
+    $('tGo').onclick = runSetup;
+    $('tBack').onclick = () => { box.hidden = true; $('towerForm').hidden = false; };
+  }
+  $('towerForm').hidden = true;
+}
+async function runSetup() {
+  const cams = scan.found.filter(f => !f.error);
+  const picks = [...document.querySelectorAll('#towerFound input[type=checkbox]')].filter(c => c.checked).map(c => Number(c.dataset.i));
+  if (!picks.length) { toast('Tick at least one camera', true); return; }
+  for (const i of picks) {
+    const n = document.querySelector(`.fr-name[data-i="${i}"]`);
+    if (!n.value.trim()) { n.focus(); toast('Give each selected camera a name', true); return; }
+  }
+  $('tGo').disabled = true;
+  const log = $('towerLog'); log.hidden = false; log.innerHTML = '<h3>Setting up…</h3>';
+  let allOk = true;
+  for (const i of picks) {
+    const f = cams[i];
+    const name = document.querySelector(`.fr-name[data-i="${i}"]`).value.trim();
+    const sec = document.createElement('div'); sec.className = 'tlog-cam';
+    sec.innerHTML = '<strong></strong><ul><li class="hint">Working… (up to a minute)</li></ul>';
+    sec.querySelector('strong').textContent = name; log.appendChild(sec);
+    try {
+      const r = await call('POST', '/api/admin/setup-camera', { host: $('tHost').value, site: $('tSite').value, name, webPort: f.webPort,
+        rtspPort: document.querySelector(`.fr-rtsp[data-i="${i}"]`).value, ptz: f.ptz, configure: $('tAuto').checked,
+        adminPass: $('tAdmin').value, portalPass: $('tPortal').value, hdChannel: $('tAuto').checked ? null : 103 });
+      const ul = sec.querySelector('ul'); ul.innerHTML = '';
+      for (const st of r.steps) {
+        if (!st.ok && !/not critical/.test(st.detail)) allOk = false;
+        const li = document.createElement('li'); li.textContent = (st.ok ? '✅ ' : '❌ ') + st.label + (st.detail ? ' — ' + st.detail : ''); ul.appendChild(li);
+      }
+    } catch (e) { allOk = false; sec.querySelector('ul').innerHTML = ''; const li = document.createElement('li'); li.textContent = '❌ ' + e.message; sec.querySelector('ul').appendChild(li); }
+  }
+  log.querySelector('h3').textContent = allOk ? 'All set. The cameras are ready to drag onto clients.' : 'Done, with some problems. See the ❌ lines below.';
+  $('tAdmin').value = ''; $('towerFound').hidden = true;
+  const done = document.createElement('div'); done.className = 'row-end';
+  done.innerHTML = '<button class="btn btn-blue" type="button" id="tDone">Done</button>'; log.appendChild(done);
+  $('tDone').onclick = () => { $('tower').hidden = true; };
+  load();
+}
+
 // ---------- camera setup
 function renderCams() {
   const cr = $('camRows');
@@ -309,7 +428,7 @@ function openCam(c) {
   $('cPtz').checked = c ? c.ptz : true; $('cChan').value = c ? c.channel : 102; $('cHd').value = c ? (c.hdChannel || '') : 103;
   $('camErr').hidden = true; $('camForm').hidden = false; $('cName').focus();
 }
-$('addCam').onclick = () => openCam(null);
+$('addCam').onclick = () => { $('tower').hidden = true; openCam(null); };
 $('camCancel').onclick = () => { $('camForm').hidden = true; };
 $('camForm').onsubmit = async ev => {
   ev.preventDefault(); $('camErr').hidden = true; $('camSave').disabled = true;

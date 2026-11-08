@@ -33,7 +33,7 @@ f.addEventListener('submit', async ev => {
     const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-cot': '1' },
       body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value }) });
     const j = await r.json().catch(() => ({}));
-    if (r.ok) { location.href = '/portal/'; return; }
+    if (r.ok) { location.href = j.role === 'admin' ? '/portal/admin' : '/portal/'; return; }
     e.textContent = j.error || 'Login failed. Try again.'; e.hidden = false;
   } catch { e.textContent = "Can't reach the server. Check your connection and try again."; e.hidden = false; }
   b.disabled = false;

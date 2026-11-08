@@ -186,14 +186,182 @@ function armWatchdog(c) {
   clearTimeout(ptzTimers.get(c.id));
   ptzTimers.set(c.id, setTimeout(() => { ptzMove(c, 0, 0, 0); ptzTimers.delete(c.id); }, 1600));
 }
-function tcpCheck(host, p) {
+function tcpCheck(host, p, ms = 5000) {
   return new Promise(resolve => {
     const s = net.connect({ host, port: p });
     const done = ok => { s.destroy(); resolve(ok); };
-    s.setTimeout(5000, () => done(false));
+    s.setTimeout(ms, () => done(false));
     s.on('connect', () => done(true));
     s.on('error', () => done(false));
   });
+}
+
+// ---------------------------------------------------------------- automatic tower setup (Hikvision ISAPI)
+// Uses the camera's admin password for this one setup only. It is never saved.
+const xmlVal = (x, tag) => { const m = String(x).match(new RegExp('<' + tag + '[^>]*>([^<]*)</' + tag + '>')); return m ? m[1] : ''; };
+const xmlEsc = s => String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+const setTag = (x, tag, val) => x.replace(new RegExp('(<' + tag + '(?:\\s[^>]*)?>)[^<]*(</' + tag + '>)', 'g'), '$1' + val + '$2');
+const okXml = r => r.status === 200 && !/<statusCode>(?!1<)\d+</.test(r.body);
+const errText = r => r.status === 0 ? "can't reach the camera" : r.status === 401 ? 'admin password was rejected' : (xmlVal(r.body, 'subStatusCode') || xmlVal(r.body, 'statusString') || 'HTTP ' + r.status);
+
+function plainReq(host, p, method, uri, body, cookie) {
+  return new Promise(resolve => {
+    const headers = {};
+    if (body) { headers['Content-Type'] = 'application/xml'; headers['Content-Length'] = Buffer.byteLength(body); }
+    if (cookie) headers.Cookie = cookie;
+    const r = http.request({ host, port: p, method, path: uri, headers, timeout: 8000 }, res => {
+      let d = ''; res.on('data', x => d += x);
+      res.on('end', () => resolve({ status: res.statusCode, body: d, cookies: [].concat(res.headers['set-cookie'] || []) }));
+    });
+    r.on('timeout', () => r.destroy(new Error('timeout')));
+    r.on('error', e => resolve({ status: 0, body: e.message, cookies: [] }));
+    if (body) r.write(body);
+    r.end();
+  });
+}
+const sha256 = s => crypto.createHash('sha256').update(s).digest('hex');
+// Same password hashing the camera's own login page uses.
+function encodePwd(pw, o, irreversible) {
+  let s;
+  if (irreversible) { s = sha256(o.userName + o.salt + pw); s = sha256(s + o.challenge); for (let i = 2; i < o.iterations; i++) s = sha256(s); }
+  else { s = sha256(pw) + o.challenge; for (let i = 1; i < o.iterations; i++) s = sha256(s); }
+  return s;
+}
+async function sessionLogin(host, p, user, pw) {
+  const cap = await plainReq(host, p, 'GET', '/ISAPI/Security/sessionLogin/capabilities?username=' + encodeURIComponent(user));
+  if (cap.status !== 200) return { ok: false, why: 'login capabilities ' + errText(cap) };
+  const o = { userName: user, salt: xmlVal(cap.body, 'salt'), challenge: xmlVal(cap.body, 'challenge'), iterations: Number(xmlVal(cap.body, 'iterations')) || 100 };
+  const irr = xmlVal(cap.body, 'isIrreversible') === 'true';
+  const sid = xmlVal(cap.body, 'sessionID');
+  let body = `<SessionLogin><userName>${xmlEsc(user)}</userName><password>${encodePwd(pw, o, irr)}</password><sessionID>${sid}</sessionID>`;
+  const ver = xmlVal(cap.body, 'sessionIDVersion');
+  if (ver) body += `<isSessionIDValidLongTerm>false</isSessionIDValidLongTerm><sessionIDVersion>${ver}</sessionIDVersion>`;
+  body += '</SessionLogin>';
+  const r = await plainReq(host, p, 'POST', '/ISAPI/Security/sessionLogin?timeStamp=' + Date.now(), body);
+  if (!okXml(r)) return { ok: false, why: 'web login ' + errText(r) };
+  const cookie = r.cookies.map(c => c.split(';')[0]).join('; ');
+  return { ok: true, cookie };
+}
+
+async function scanTower(host, adminPass, extra) {
+  const ports = new Set();
+  for (let p = 80; p <= 130; p++) ports.add(p);
+  for (let p = 8080; p <= 8090; p++) ports.add(p);
+  for (const p of extra) ports.add(p);
+  const list = [...ports];
+  const open = [];
+  for (let i = 0; i < list.length; i += 25) {
+    const chunk = list.slice(i, i + 25);
+    const res = await Promise.all(chunk.map(p => tcpCheck(host, p, 2500)));
+    chunk.forEach((p, j) => { if (res[j]) open.push(p); });
+  }
+  const found = [];
+  for (const webPort of open) {
+    const c = { host, webPort, camUser: 'admin', camPass: adminPass };
+    const info = await isapi(c, 'GET', '/ISAPI/System/deviceInfo');
+    if (info.status === 401) { found.push({ webPort, error: 'Found a camera here, but the admin password was rejected.' }); continue; }
+    if (info.status !== 200 || !/<DeviceInfo/i.test(info.body)) continue;
+    const item = { webPort, model: xmlVal(info.body, 'model'), deviceName: xmlVal(info.body, 'deviceName'), serial: xmlVal(info.body, 'serialNumber'), type: xmlVal(info.body, 'deviceType') };
+    const acc = await isapi(c, 'GET', '/ISAPI/Security/adminAccesses');
+    const m = acc.body.match(/<protocol>RTSP<\/protocol>\s*<portNo>(\d+)<\/portNo>/i);
+    item.rtspPort = m ? Number(m[1]) : null;
+    item.rtspOpen = item.rtspPort ? await tcpCheck(host, item.rtspPort) : false;
+    const ptz = await isapi(c, 'GET', '/ISAPI/PTZCtrl/channels/1/capabilities');
+    item.ptz = ptz.status === 200 && /PTZChanelCap|PTZChannelCap|ContinuousPanTiltSpace/i.test(ptz.body);
+    const ex = db.cameras.find(x => x.host === host && x.webPort === webPort);
+    item.existing = ex ? ex.name : null;
+    found.push(item);
+  }
+  return { open, found };
+}
+
+async function configStream(c, ch, opts) {
+  const g = await isapi(c, 'GET', '/ISAPI/Streaming/channels/' + ch);
+  if (g.status !== 200) return { ok: false, detail: 'read failed: ' + errText(g) };
+  let x = g.body;
+  x = setTag(x, 'videoCodecType', 'H.264');
+  x = x.replace(/<H265Profile>[^<]*<\/H265Profile>/g, '<H264Profile>Main</H264Profile>');
+  x = setTag(x, 'videoQualityControlType', 'VBR');
+  x = setTag(x, 'vbrUpperCap', String(opts.kbps));
+  x = setTag(x, 'maxFrameRate', String(opts.fps * 100));
+  x = setTag(x, 'GovLength', String(opts.gop));
+  if (opts.width) { x = setTag(x, 'videoResolutionWidth', String(opts.width)); x = setTag(x, 'videoResolutionHeight', String(opts.height)); }
+  x = x.replace(/(<Audio[^>]*>[\s\S]*?<enabled>)true(<\/enabled>)/, '$1false$2');
+  const p = await isapi(c, 'PUT', '/ISAPI/Streaming/channels/' + ch, x);
+  return okXml(p) ? { ok: true, detail: `${opts.width ? opts.width + '×' + opts.height + ', ' : ''}H.264, ${opts.fps} fps, ${opts.kbps} Kbps` } : { ok: false, detail: errText(p) };
+}
+
+async function setupWebUser(c, adminPass, finalPass) {
+  const steps = [];
+  const users = await isapi(c, 'GET', '/ISAPI/Security/users');
+  if (users.status !== 200) return [{ label: 'Website login', ok: false, detail: 'could not read users: ' + errText(users) }];
+  const blocks = users.body.match(/<User[\s>][\s\S]*?<\/User>/g) || [];
+  const parsed = blocks.map(b => ({ id: Number(xmlVal(b, 'id')), name: xmlVal(b, 'userName'), inherent: xmlVal(b, 'inherent') }));
+  let u = parsed.find(x => x.name === 'webportal');
+  const temp = 'Tmp' + crypto.randomBytes(6).toString('hex') + '#9a';
+  const userXml = (id, pw, inherent) => `<?xml version="1.0" encoding="UTF-8"?><User><id>${id}</id><userName>webportal</userName><loginPassword>${xmlEsc(adminPass)}</loginPassword><password>${xmlEsc(pw)}</password><bondIpList><bondIp><id>1</id><ipAddress>0.0.0.0</ipAddress><ipv6Address>::</ipv6Address></bondIp></bondIpList><macAddress></macAddress><userLevel>Operator</userLevel>${inherent ? `<attribute><inherent>${inherent}</inherent></attribute>` : ''}</User>`;
+  let r;
+  if (u) r = await isapi(c, 'PUT', '/ISAPI/Security/users/' + u.id, userXml(u.id, temp, u.inherent));
+  else {
+    const used = new Set(parsed.map(x => x.id)); let id = 2; while (used.has(id)) id++;
+    r = await isapi(c, 'POST', '/ISAPI/Security/users', userXml(id, temp, 'false'));
+    if (okXml(r)) { const again = await isapi(c, 'GET', '/ISAPI/Security/users'); const b = (again.body.match(/<User[\s>][\s\S]*?<\/User>/g) || []).find(b => xmlVal(b, 'userName') === 'webportal'); u = b ? { id: Number(xmlVal(b, 'id')), inherent: xmlVal(b, 'inherent') } : { id, inherent: 'false' }; }
+  }
+  if (!okXml(r)) return [{ label: 'Website login', ok: false, detail: (u ? 'update' : 'create') + ' failed: ' + errText(r) }];
+  steps.push({ label: 'Website login (webportal)', ok: true, detail: u ? 'ready' : 'created' });
+
+  // Permissions: live view + PTZ only.
+  const perms = await isapi(c, 'GET', '/ISAPI/Security/UserPermission');
+  const pb = (perms.body.match(/<UserPermission[\s>][\s\S]*?<\/UserPermission>/g) || []).find(b => Number(xmlVal(b, 'userID')) === u.id);
+  if (pb) {
+    let nb = pb.replace(/<remotePermission>([\s\S]*?)<\/remotePermission>/, (m, inner) => {
+      inner = inner.replace(/>true</g, '>false<');
+      inner = inner.replace(/<preview>false<\/preview>/g, '<preview>true</preview>').replace(/<ptzControl>false<\/ptzControl>/g, '<ptzControl>true</ptzControl>');
+      return '<remotePermission>' + inner + '</remotePermission>';
+    });
+    const pr = await isapi(c, 'PUT', '/ISAPI/Security/UserPermission/' + xmlVal(pb, 'id'), '<?xml version="1.0" encoding="UTF-8"?>' + nb);
+    steps.push({ label: 'Permissions (live view + PTZ only)', ok: okXml(pr), detail: okXml(pr) ? 'set' : errText(pr) + ' (not critical)' });
+  } else steps.push({ label: 'Permissions (live view + PTZ only)', ok: false, detail: 'could not read (not critical)' });
+
+  // Activate: log in once as webportal and set the real password, like the camera's login page does.
+  const s = await sessionLogin(c.host, c.webPort, 'webportal', temp);
+  if (!s.ok) { steps.push({ label: 'Activate login', ok: false, detail: s.why }); return steps; }
+  const ch = await plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/users/' + u.id,
+    `<?xml version="1.0" encoding="UTF-8"?><User><id>${u.id}</id><userName>webportal</userName><loginPassword>${xmlEsc(temp)}</loginPassword><password>${xmlEsc(finalPass)}</password><bondIpList><bondIp><id>1</id><ipAddress>0.0.0.0</ipAddress><ipv6Address>::</ipv6Address></bondIp></bondIpList><macAddress></macAddress><userLevel>Operator</userLevel><attribute><inherent>${u.inherent || 'false'}</inherent></attribute></User>`, s.cookie);
+  steps.push({ label: 'Activate login', ok: okXml(ch), detail: okXml(ch) ? 'done' : errText(ch) });
+  plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, s.cookie);
+  return steps;
+}
+
+async function setupCamera(b) {
+  const host = clean(b.host, 100), webPort = port(b.webPort), rtspPort = port(b.rtspPort);
+  const steps = [];
+  if (!host || !webPort || !rtspPort) return { steps: [{ label: 'Check details', ok: false, detail: 'missing IP or ports' }] };
+  const admin = { host, webPort, camUser: 'admin', camPass: String(b.adminPass || '') };
+  let portalPass = String(b.portalPass || '');
+  let hd = null;
+  if (b.configure) {
+    const info = await isapi(admin, 'GET', '/ISAPI/System/deviceInfo');
+    if (info.status !== 200) return { steps: [{ label: 'Connect as admin', ok: false, detail: errText(info) }] };
+    const s1 = await configStream(admin, 102, { kbps: 512, fps: 15, gop: 30 });
+    steps.push({ label: 'Standard stream', ok: s1.ok, detail: s1.detail });
+    const s2 = await configStream(admin, 103, { kbps: 2048, fps: 10, gop: 20, width: 1920, height: 1080 });
+    steps.push({ label: 'HD stream', ok: s2.ok, detail: s2.detail });
+    if (s2.ok) hd = 103;
+    steps.push(...await setupWebUser(admin, admin.camPass, portalPass));
+  } else hd = port(b.hdChannel) || null;
+  const test = await isapi({ host, webPort, camUser: 'webportal', camPass: portalPass }, 'GET', '/ISAPI/System/deviceInfo');
+  steps.push({ label: 'Portal can log in to camera', ok: test.status === 200, detail: test.status === 200 ? 'yes' : errText(test) });
+  const vid = await tcpCheck(host, rtspPort);
+  steps.push({ label: 'Video port reachable', ok: vid, detail: vid ? String(rtspPort) : 'port ' + rtspPort + ' closed. Check the Milesight port forward.' });
+  let cam = db.cameras.find(x => x.host === host && x.webPort === webPort);
+  const isNew = !cam;
+  if (!cam) { cam = { id: newId('c_') }; db.cameras.push(cam); }
+  Object.assign(cam, { name: clean(b.name) || cam.name || 'Camera', site: clean(b.site) || cam.site || 'Site', host, webPort, rtspPort,
+    channel: 102, hdChannel: hd || cam.hdChannel || null, ptz: !!b.ptz, camUser: 'webportal', camPass: portalPass });
+  saveDb(); await pushStream(cam);
+  steps.push({ label: isNew ? 'Added to portal' : 'Updated in portal', ok: true, detail: cam.name });
+  return { steps, id: cam.id };
 }
 
 // ---------------------------------------------------------------- API
@@ -323,6 +491,20 @@ async function api(req, res, u, url) {
     return send(res, 200, { web, video, login });
   }
 
+  if (p === '/api/admin/scan' && m === 'POST') {
+    const b = await readJson(req);
+    const host = clean(b.host, 100);
+    if (!/^[a-zA-Z0-9.-]+$/.test(host)) return send(res, 400, { error: 'Enter the tower IP only, like 75.122.251.0.' });
+    if (!b.adminPass) return send(res, 400, { error: "Enter the cameras' admin password." });
+    const extra = String(b.extraPorts || '').split(/[\s,]+/).map(port).filter(Boolean).slice(0, 20);
+    return send(res, 200, await scanTower(host, String(b.adminPass), extra));
+  }
+  if (p === '/api/admin/setup-camera' && m === 'POST') {
+    const b = await readJson(req);
+    if (String(b.portalPass || '').length < 8) return send(res, 400, { error: 'The website camera password needs at least 8 characters.' });
+    return send(res, 200, await setupCamera(b));
+  }
+
   if (p === '/api/admin/users' && m === 'POST') {
     const b = await readJson(req);
     const existing = b.id ? db.users.find(x => x.id === b.id) : null;
@@ -389,7 +571,7 @@ async function handle(req, res) {
   if (p === '/portal/setup') return db.users.length ? redirect(res, '/portal/login') : serveFile(res, path.join(PUB, 'setup.html'));
   if (p === '/portal/login') {
     if (!db.users.length) return redirect(res, '/portal/setup');
-    return u ? redirect(res, '/portal/') : serveFile(res, path.join(PUB, 'login.html'));
+    return u ? redirect(res, u.role === 'admin' ? '/portal/admin' : '/portal/') : serveFile(res, path.join(PUB, 'login.html'));
   }
   if (p === '/portal/') {
     if (!db.users.length) return redirect(res, '/portal/setup');
