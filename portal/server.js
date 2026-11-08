@@ -228,6 +228,46 @@ function encodePwd(pw, o, irreversible) {
   else { s = sha256(pw) + o.challenge; for (let i = 1; i < o.iterations; i++) s = sha256(s); }
   return s;
 }
+// The camera's web page encrypts user names and passwords ("security=1") when saving users.
+// Key: sha256 chain of the logged-in user's password, same as the page's _strToAESKey().
+async function secCtx(c, user, pass) {
+  const r = await isapi(c, 'GET', '/ISAPI/Security/capabilities?username=' + encodeURIComponent(user));
+  if (r.status !== 200) return null;
+  const m = r.body.match(/<securityVersion[^>]*opt="([^"]*)"/);
+  const ver = m ? Number(m[1].split(',').pop()) : 0;
+  const iter = Number(xmlVal(r.body, 'keyIterateNum')) || 0;
+  if (ver !== 1 || !iter) return null;
+  const a = xmlVal(r.body, 'isIrreversible') === 'true' ? sha256(user + xmlVal(r.body, 'salt') + pass) : pass;
+  let t = sha256(a + 'AaBbCcDd1234!@#$');
+  for (let i = 1; i < iter; i++) t = sha256(t);
+  return { ver, key: t.slice(0, 32) };
+}
+function aesEnc(ctx, iv, val) {
+  const ci = crypto.createCipheriv('aes-128-cbc', Buffer.from(ctx.key, 'hex'), Buffer.from(iv, 'hex'));
+  return Buffer.concat([ci.update(Buffer.from(xmlEsc(val), 'utf8').toString('base64'), 'utf8'), ci.final()]).toString('hex');
+}
+function aesDec(ctx, iv, hex) {
+  try {
+    const de = crypto.createDecipheriv('aes-128-cbc', Buffer.from(ctx.key, 'hex'), Buffer.from(iv, 'hex'));
+    const b64 = Buffer.concat([de.update(Buffer.from(hex, 'hex')), de.final()]).toString('utf8');
+    return Buffer.from(b64, 'base64').toString('utf8');
+  } catch { return null; }
+}
+const newIv = () => crypto.createHash('md5').update(String(Date.now()) + Math.random()).digest('hex');
+// Prove the key works by reading the user list encrypted and decrypting our own name.
+async function verifySec(c, ctx, user) {
+  const iv = newIv();
+  const r = await isapi(c, 'GET', `/ISAPI/Security/users?security=${ctx.ver}&iv=${iv}`);
+  if (r.status !== 200) return false;
+  const names = (r.body.match(/<userName>([^<]*)<\/userName>/g) || []).map(x => aesDec(ctx, iv, x.replace(/<\/?userName>/g, '')));
+  return names.includes(user);
+}
+function userXmlSec(ctx, iv, id, user, loginPw, pw, inherent) {
+  const f = s => ctx ? aesEnc(ctx, iv, s) : xmlEsc(s);
+  return `<?xml version="1.0" encoding="UTF-8"?><User><id>${id}</id><userName>${f(user)}</userName><loginPassword>${f(loginPw)}</loginPassword><password>${f(pw)}</password><bondIpList><bondIp><id>1</id><ipAddress>0.0.0.0</ipAddress><ipv6Address>::</ipv6Address></bondIp></bondIpList><macAddress></macAddress><userLevel>Operator</userLevel><attribute><inherent>${inherent || 'false'}</inherent></attribute></User>`;
+}
+const secQ = (ctx, iv) => ctx ? `?security=${ctx.ver}&iv=${iv}` : '';
+
 async function sessionLogin(host, p, user, pw) {
   const cap = await plainReq(host, p, 'GET', '/ISAPI/Security/sessionLogin/capabilities?username=' + encodeURIComponent(user));
   if (cap.status !== 200) return { ok: false, why: 'login capabilities ' + errText(cap) };
@@ -319,23 +359,26 @@ async function setupWebUser(c, adminPass, finalPass) {
   const blocks = users.body.match(/<User[\s>][\s\S]*?<\/User>/g) || [];
   const parsed = blocks.map(b => ({ id: Number(xmlVal(b, 'id')), name: xmlVal(b, 'userName'), inherent: xmlVal(b, 'inherent') }));
   let u = parsed.find(x => x.name === 'webportal');
-  const temp = 'Tmp' + crypto.randomBytes(6).toString('hex') + '#9a';
-  const userXml = (id, pw, inherent) => `<?xml version="1.0" encoding="UTF-8"?><User><id>${id}</id><userName>webportal</userName><loginPassword>${xmlEsc(adminPass)}</loginPassword><password>${xmlEsc(pw)}</password><bondIpList><bondIp><id>1</id><ipAddress>0.0.0.0</ipAddress><ipv6Address>::</ipv6Address></bondIp></bondIpList><macAddress></macAddress><userLevel>Operator</userLevel>${inherent ? `<attribute><inherent>${inherent}</inherent></attribute>` : ''}</User>`;
-  let r;
-  if (u) r = await isapi(c, 'PUT', '/ISAPI/Security/users/' + u.id, userXml(u.id, temp, u.inherent));
+  const temp = 'Tmp' + crypto.randomBytes(6).toString('hex') + 'x9Q';
+
+  // Encrypt like the camera's own page, if the camera uses that scheme (checked first).
+  let ctx = await secCtx(c, 'admin', adminPass);
+  if (ctx && !(await verifySec(c, ctx, 'admin'))) ctx = null;
+  let iv = newIv(), r;
+  if (u) r = await isapi(c, 'PUT', '/ISAPI/Security/users/' + u.id + secQ(ctx, iv), userXmlSec(ctx, iv, u.id, 'webportal', adminPass, temp, u.inherent));
   else {
     const used = new Set(parsed.map(x => x.id)); let id = 2; while (used.has(id)) id++;
-    r = await isapi(c, 'POST', '/ISAPI/Security/users', userXml(id, temp, 'false'));
+    r = await isapi(c, 'POST', '/ISAPI/Security/users' + secQ(ctx, iv), userXmlSec(ctx, iv, id, 'webportal', adminPass, temp, 'false'));
     if (okXml(r)) { const again = await isapi(c, 'GET', '/ISAPI/Security/users'); const b = (again.body.match(/<User[\s>][\s\S]*?<\/User>/g) || []).find(b => xmlVal(b, 'userName') === 'webportal'); u = b ? { id: Number(xmlVal(b, 'id')), inherent: xmlVal(b, 'inherent') } : { id, inherent: 'false' }; }
   }
   if (!okXml(r)) return [{ label: 'Website login', ok: false, detail: (u ? 'update' : 'create') + ' failed: ' + errText(r) }];
-  steps.push({ label: 'Website login (webportal)', ok: true, detail: u ? 'ready' : 'created' });
+  steps.push({ label: 'Website login (webportal)', ok: true, detail: (ctx ? 'encrypted, ' : '') + 'ready' });
 
   // Permissions: live view + PTZ only.
   const perms = await isapi(c, 'GET', '/ISAPI/Security/UserPermission');
   const pb = (perms.body.match(/<UserPermission[\s>][\s\S]*?<\/UserPermission>/g) || []).find(b => Number(xmlVal(b, 'userID')) === u.id);
   if (pb) {
-    let nb = pb.replace(/<remotePermission>([\s\S]*?)<\/remotePermission>/, (m, inner) => {
+    const nb = pb.replace(/<remotePermission>([\s\S]*?)<\/remotePermission>/, (m, inner) => {
       inner = inner.replace(/>true</g, '>false<');
       inner = inner.replace(/<preview>false<\/preview>/g, '<preview>true</preview>').replace(/<ptzControl>false<\/ptzControl>/g, '<ptzControl>true</ptzControl>');
       return '<remotePermission>' + inner + '</remotePermission>';
@@ -347,8 +390,10 @@ async function setupWebUser(c, adminPass, finalPass) {
   // Activate: log in once as webportal and set the real password, like the camera's login page does.
   const s = await sessionLogin(c.host, c.webPort, 'webportal', temp);
   if (!s.ok) { steps.push({ label: 'Activate login', ok: false, detail: s.why }); return steps; }
-  const ch = await plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/users/' + u.id,
-    `<?xml version="1.0" encoding="UTF-8"?><User><id>${u.id}</id><userName>webportal</userName><loginPassword>${xmlEsc(temp)}</loginPassword><password>${xmlEsc(finalPass)}</password><bondIpList><bondIp><id>1</id><ipAddress>0.0.0.0</ipAddress><ipv6Address>::</ipv6Address></bondIp></bondIpList><macAddress></macAddress><userLevel>Operator</userLevel><attribute><inherent>${u.inherent || 'false'}</inherent></attribute></User>`, s.cookie);
+  const wc = { host: c.host, webPort: c.webPort, cookie: s.cookie };
+  const wctx = ctx ? await secCtx(wc, 'webportal', temp) : null;
+  iv = newIv();
+  const ch = await isapi(wc, 'PUT', '/ISAPI/Security/users/' + u.id + secQ(wctx, iv), userXmlSec(wctx, iv, u.id, 'webportal', temp, finalPass, u.inherent));
   steps.push({ label: 'Activate login', ok: okXml(ch), detail: okXml(ch) ? 'done' : errText(ch) });
   plainReq(c.host, c.webPort, 'PUT', '/ISAPI/Security/sessionLogout', null, s.cookie);
   return steps;
@@ -373,7 +418,7 @@ async function setupCamera(b) {
     steps.push(...await setupWebUser(admin, admin.camPass, portalPass));
   } else hd = port(b.hdChannel) || null;
   const test = await isapi({ host, webPort, camUser: 'webportal', camPass: portalPass }, 'GET', '/ISAPI/System/deviceInfo');
-  steps.push({ label: 'Portal can log in to camera', ok: test.status === 200, detail: test.status === 200 ? 'yes' : errText(test) });
+  steps.push({ label: 'Portal can log in to camera', ok: test.status === 200, detail: test.status === 200 ? 'yes' : test.status === 401 ? 'webportal password rejected' : errText(test) });
   const vid = await tcpCheck(host, rtspPort);
   steps.push({ label: 'Video port reachable', ok: vid, detail: vid ? String(rtspPort) : 'port ' + rtspPort + ' closed. Check the Milesight port forward.' });
   let cam = db.cameras.find(x => x.host === host && x.webPort === webPort);
