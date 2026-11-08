@@ -58,9 +58,9 @@
         <h3>Add a tower</h3>
         <label for="tHost">Tower static IP<input id="tHost" placeholder="75.122.251.0" inputmode="decimal" required><span class="hint">Just the number, from the Milesight or T-Mobile.</span></label>
         <label for="tSite">Site name<input id="tSite" placeholder="Maricopa" required><span class="hint">Shown to clients above the camera names.</span></label>
-        <label for="tAdmin" class="full">Cameras' admin password<input id="tAdmin" type="password" autocomplete="off" required><span class="hint">The password you use to log in to the cameras as admin. Used once for setup and never saved.</span></label>
+        <label for="tAdmin" class="full">Hikvision camera admin password<input id="tAdmin" type="password" autocomplete="off" required><span class="hint">The password for the <b>red Hikvision login page</b> on the cameras themselves. Not your Cop On Top login. Used once for setup and never saved.</span></label>
         <label class="check full" for="tAuto"><input type="checkbox" id="tAuto" checked> Set up the cameras for the portal automatically (recommended)</label>
-        <label for="tPortal" class="full"><span id="tPortalLabel">Website camera password</span><span class="pw-row"><input id="tPortal" autocomplete="off" spellcheck="false"><button type="button" class="btn btn-line btn-sm" id="tGen">Random</button></span><span class="hint" id="tPortalHint">The portal uses this behind the scenes. You don't need to remember it.</span></label>
+        <label for="tPortal" class="full"><span id="tPortalLabel">Portal's camera login password (filled in for you)</span><span class="pw-row"><input id="tPortal" autocomplete="off" spellcheck="false"><button type="button" class="btn btn-line btn-sm" id="tGen">Random</button></span><span class="hint" id="tPortalHint">The portal uses this behind the scenes. You don't need to remember it.</span></label>
         <details class="full"><summary class="hint" style="cursor:pointer">Advanced</summary>
           <label for="tExtra" style="margin-top:10px">Extra web ports to check<input id="tExtra" placeholder="e.g. 8443, 9000"><span class="hint">The scan already checks 80–130 and 8080–8090.</span></label>
         </details>
@@ -81,8 +81,8 @@
         <span class="hint">Just the number. No http:// and no port.</span></label>
       <label for="cWeb">Web port<input id="cWeb" inputmode="numeric" placeholder="92" required></label>
       <label for="cRtsp">Video (RTSP) port<input id="cRtsp" inputmode="numeric" placeholder="2554" required></label>
-      <label for="cUser">Camera username<input id="cUser" value="webportal" autocapitalize="none" spellcheck="false"></label>
-      <label for="cPass">Camera password<input id="cPass" type="password" autocomplete="new-password">
+      <label for="cUser">Hikvision username<input id="cUser" value="webportal" autocapitalize="none" spellcheck="false"></label>
+      <label for="cPass">Hikvision "webportal" password<input id="cPass" type="password" autocomplete="new-password">
         <span class="hint" id="cPassHint">The password for the webportal user on the camera.</span></label>
       <label class="check full" for="cPtz"><input type="checkbox" id="cPtz" checked> This camera can pan, tilt and zoom</label>
       <details class="full"><summary class="hint" style="cursor:pointer">Advanced</summary>
@@ -108,7 +108,7 @@
 
   <!-- MY PASSWORD -->
   <section class="panel">
-    <h2>Your password</h2>
+    <h2>Your Cop On Top password</h2>
     <form class="form" id="pwForm" novalidate>
       <label for="pCur">Current password<input id="pCur" type="password" autocomplete="current-password"></label>
       <label for="pNew">New password<input id="pNew" type="password" autocomplete="new-password"><span class="hint">At least 10 characters.</span></label>
@@ -289,7 +289,7 @@ function renderAdmins() {
 const randPw = () => makePassword().replace(/-/g, '') + 'A9';
 function syncAuto() {
   const auto = $('tAuto').checked;
-  $('tPortalLabel').textContent = auto ? 'Website camera password' : "The cameras' existing webportal password";
+  $('tPortalLabel').textContent = auto ? "Portal's camera login password (filled in for you)" : 'Existing "webportal" password on the Hikvision cameras';
   $('tPortalHint').textContent = auto ? "The portal uses this behind the scenes. You don't need to remember it." : 'Use this if the cameras were already set up by hand.';
   $('tGen').hidden = !auto;
   if (!auto) $('tPortal').value = '';
