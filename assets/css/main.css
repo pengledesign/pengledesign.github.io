@@ -2539,13 +2539,12 @@ section,
   .page-title .title-wrapper .project-title-row { width: max-content; max-width: calc(100vw - 48px); }
 }
 
-/* My role: filled label box joined to an outlined white box of roles */
-.page-title .title-wrapper .project-roles { display: inline-flex; align-items: stretch; max-width: 100%; margin: 0.5rem 0 1.25rem; border: 2px solid var(--heading-color); border-radius: 10px; background: #fff; box-shadow: 3px 3px 0 var(--heading-color); overflow: hidden; }
-.page-title .title-wrapper .project-roles .label { display: flex; align-items: center; flex-shrink: 0; padding: 6px 12px; background: var(--heading-color); color: #fff; font-family: var(--heading-font); font-size: 14px; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
-.page-title .title-wrapper .project-roles .roles-clip { display: flex; align-items: center; overflow: hidden; padding: 6px 14px 6px 0; margin-left: 14px; }
-.page-title .title-wrapper .project-roles ul { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; list-style: none; margin: 0 0 0 -24px; padding: 0; }
-.page-title .title-wrapper .project-roles li { font-size: 14px; font-weight: 500; color: var(--heading-color); line-height: 1.5; white-space: nowrap; }
-.page-title .title-wrapper .project-roles li::before { content: "\2022"; display: inline-block; width: 24px; text-align: center; color: var(--accent-color); }
+/* My roles: bold label + thin orange-outlined tags */
+.page-title .title-wrapper .project-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0.6rem 0 1.3rem; }
+.page-title .title-wrapper .project-roles .label { font-family: var(--heading-font); font-size: 20px; line-height: 1; text-transform: uppercase; color: var(--heading-color); margin-right: 10px; }
+.page-title .title-wrapper .project-roles .roles-clip { display: contents; }
+.page-title .title-wrapper .project-roles ul { display: contents; list-style: none; }
+.page-title .title-wrapper .project-roles li { font-family: var(--default-font); font-size: 13px; line-height: 1; text-transform: uppercase; letter-spacing: 0.6px; color: var(--heading-color); background: #fff; border: 1.5px solid var(--accent-color); border-radius: 10px; padding: 6px 12px 5px; white-space: nowrap; }
 
 /* The Hunt: full piece + detail shots side by side, process row */
 .project-gallery--hunt { display: block; }
@@ -2569,11 +2568,9 @@ section,
   .hunt-hero .hunt-d1 img { aspect-ratio: 1400 / 892; }
   .hunt-process { grid-template-columns: 1fr; gap: 12px; }
   .project-gallery--hunt .gallery-heading { margin: 40px 0 14px; }
-  .page-title .title-wrapper .project-roles .label { font-size: 12px; padding: 6px 10px; }
-  .page-title .title-wrapper .project-roles .roles-clip { padding: 5px 10px 5px 0; margin-left: 10px; }
-  .page-title .title-wrapper .project-roles ul { margin-left: -18px; }
-  .page-title .title-wrapper .project-roles li { font-size: 12.5px; }
-  .page-title .title-wrapper .project-roles li::before { width: 18px; }
+  .page-title .title-wrapper .project-roles { gap: 6px; }
+  .page-title .title-wrapper .project-roles .label { font-size: 17px; margin-right: 4px; }
+  .page-title .title-wrapper .project-roles li { font-size: 11.5px; padding: 6px 9px 5px; border-radius: 8px; }
 }
 
 /* Tall shots: keep them within one screen on desktop */
