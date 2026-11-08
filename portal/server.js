@@ -433,7 +433,11 @@ async function setupCamera(b) {
     const s2 = await configStream(admin, 103, { kbps: 2048, fps: 10, gop: 20, width: 1920, height: 1080 });
     steps.push({ label: 'HD stream', ok: s2.ok, detail: s2.detail });
     if (s2.ok) hd = 103;
-    steps.push(...await setupWebUser(admin, admin.camPass, portalPass));
+    const ws = await setupWebUser(admin, admin.camPass, portalPass);
+    steps.push(...ws);
+    // If the login setup didn't finish, keep the camera's old working password instead of saving the new one.
+    const ex0 = db.cameras.find(x => x.host === host && x.webPort === webPort);
+    if (ws.some(x => !x.ok && /Website login|Activate/.test(x.label)) && ex0 && ex0.camPass) portalPass = ex0.camPass;
   } else hd = port(b.hdChannel) || null;
   const test = await isapi({ host, webPort, camUser: 'webportal', camPass: portalPass }, 'GET', '/ISAPI/System/deviceInfo');
   steps.push({ label: 'Portal can log in to camera', ok: test.status === 200, detail: test.status === 200 ? 'yes' : test.status === 401 ? 'webportal password rejected' : errText(test) });
