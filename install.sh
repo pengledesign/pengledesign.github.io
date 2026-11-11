@@ -60,6 +60,6 @@ else
 fi
 if [ -f /var/lib/cop-on-top/setup-code.txt ]; then
   echo
-  echo "  Go to https://cop-on-top.com/portal/ to create the admin account."
+  echo "  Go to https://copontop.net/portal/ to create the admin account."
   echo "  SETUP CODE: $(cat /var/lib/cop-on-top/setup-code.txt)"
 fi
