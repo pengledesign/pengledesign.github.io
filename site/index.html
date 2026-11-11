@@ -271,6 +271,18 @@ form.qf{background:#fff;color:var(--ink);border-radius:6px;padding:32px;display:
 .addon p{margin:0;color:var(--secure)}
 .addon .eyebrow{color:var(--police)}
 .pricing{background:var(--secure-xlt)}
+.pr-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px 40px;flex-wrap:wrap}
+.pr-head .sec-head{margin-bottom:0}
+.pr-toggle{flex:none}
+.pr-toggle .arrow{display:inline-block;transition:transform .25s}
+.pricing:not(.closed) .pr-toggle .arrow{transform:rotate(180deg)}
+.pr-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .4s ease}
+.pr-inner{overflow:hidden;min-height:0}
+.pr-inner>.pr-grid{margin-top:40px}
+.pricing.closed .pr-body{grid-template-rows:0fr}
+.pricing.closed .pr-inner{visibility:hidden;transition:visibility 0s .4s}
+.pricing.closed{padding-block:56px}
+@media (prefers-reduced-motion:reduce){.pr-body{transition:none}}
 .pr-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:32px;align-items:start}
 .pr-controls{background:#fff;border-radius:6px;padding:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .pq{display:grid;gap:10px;align-content:start}
@@ -634,13 +646,17 @@ html,body{height:100%}
     </section>
 
     <!-- PRICING: self-serve quote builder -->
-    <section class="band pricing" id="pricing">
+    <section class="band pricing closed" id="pricing">
       <div class="wrap">
-        <div class="sec-head">
-          <p class="eyebrow">Pricing</p>
-          <h2>Price it out <em>yourself.</em></h2>
-          <p>No forms, no sales call. Pick your setup and your price shows up right here.</p>
+        <div class="pr-head">
+          <div class="sec-head">
+            <p class="eyebrow">Pricing</p>
+            <h2>Price it out <em>yourself.</em></h2>
+            <p>No forms, no sales call. Pick your setup and see your price in seconds.</p>
+          </div>
+          <button class="btn btn-blue pr-toggle" id="prToggle" type="button" aria-expanded="false" aria-controls="prBody">Build my quote <span class="arrow">↓</span></button>
         </div>
+        <div class="pr-body" id="prBody"><div class="pr-inner">
         <div class="pr-grid">
           <div class="pr-controls">
             <div class="pq">
@@ -682,6 +698,7 @@ html,body{height:100%}
             </form>
           </div>
         </div>
+      </div></div>
       </div>
     </section>
 
@@ -958,6 +975,14 @@ html,body{height:100%}
   ['q-towers','q-months','q-mon','st-az','st-out'].forEach(function(id){$(id).addEventListener('input',renderQuote);$(id).addEventListener('change',renderQuote)});
   document.querySelectorAll('[data-step]').forEach(function(btn){btn.addEventListener('click',function(){var el=$(btn.getAttribute('data-step'));el.value=clampN(el,1,+el.max)+(+btn.getAttribute('data-d'));el.value=clampN(el,1,+el.max);renderQuote()})});
   renderQuote();
+  function openPricing(open){
+    var sec=$('pricing');if(open===undefined)open=sec.classList.contains('closed');
+    sec.classList.toggle('closed',!open);$('prToggle').setAttribute('aria-expanded',open);
+    $('prToggle').firstChild.nodeValue=open?'Hide calculator ':'Build my quote ';
+  }
+  $('prToggle').addEventListener('click',function(){var wasClosed=$('pricing').classList.contains('closed');openPricing();if(wasClosed)setTimeout(function(){$('q-towers').focus({preventScroll:true})},420)});
+  document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href="#pricing"]');if(a)openPricing(true)},true);
+  if(location.hash==='#pricing')openPricing(true);
   document.querySelectorAll('[data-towers]').forEach(function(a){a.addEventListener('click',function(){$('q-towers').value=a.getAttribute('data-towers');renderQuote()})});
   document.querySelectorAll('[data-mon]').forEach(function(a){a.addEventListener('click',function(){$('q-mon').checked=true;renderQuote()})});
   function postLead(data,btn){
