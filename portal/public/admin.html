@@ -22,7 +22,7 @@
 <main class="wrap">
   <!-- WEBSITE REQUESTS -->
   <section class="panel">
-    <div class="panel-head"><h2>Quote requests &amp; messages</h2><span class="hint" id="mailState"></span></div>
+    <div class="panel-head"><h2>Quote requests &amp; messages</h2><div class="acts"><span class="hint" id="mailState"></span><button class="btn btn-line btn-sm" id="testMail" type="button">Send test email</button></div></div>
     <p class="hint">Everything people send from the website lands here, newest first.</p>
     <div class="leads" id="leads"></div>
   </section>
@@ -167,6 +167,12 @@ const clients = () => data.users.filter(u => u.role !== 'admin');
 
 function render() { renderLeads(); renderPool(); renderClients(); renderCams(); renderAdmins(); }
 const usd = n => '$' + Number(n).toLocaleString('en-US');
+$('testMail').onclick = async () => {
+  const b = $('testMail'); b.disabled = true; b.textContent = 'Sending…';
+  try { const j = await call('POST', '/api/admin/test-email', {}); toast('Test email sent to ' + j.to); }
+  catch (e) { toast(e.message, true); $('mailState').textContent = '⚠️ ' + e.message; }
+  b.disabled = false; b.textContent = 'Send test email';
+};
 function renderLeads() {
   $('mailState').textContent = data.mailReady ? '✉️ Email is on' : '✉️ Email not connected yet (requests still save here)';
   const box = $('leads'); box.innerHTML = '';
@@ -179,7 +185,7 @@ function renderLeads() {
       <div class="lead-body"><div class="lc"></div><div class="lq"></div></div>`;
     d.querySelector('.tag').textContent = l.kind === 'quote' ? 'Quote' : 'Message';
     d.querySelector('.who').textContent = [l.name, l.company].filter(Boolean).join(' · ') || 'No name';
-    d.querySelector('.when').textContent = new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + (l.emailed ? '' : ' · not emailed');
+    d.querySelector('.when').textContent = new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + (l.emailed ? ' · emailed ✓' : ' · not emailed' + (l.emailError ? ' (' + l.emailError + ')' : ''));
     const lc = d.querySelector('.lc');
     if (l.phone) { const a = document.createElement('a'); a.href = 'tel:' + l.phone.replace(/[^\d+]/g, ''); a.textContent = l.phone; lc.appendChild(a); }
     if (l.email) { const a = document.createElement('a'); a.href = 'mailto:' + l.email; a.textContent = l.email; lc.appendChild(a); }

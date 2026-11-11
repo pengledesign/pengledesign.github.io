@@ -106,13 +106,13 @@ function sendMail(msg) {
   if (!MAIL.key) return Promise.resolve({ ok: false, why: 'email not set up yet' });
   const body = JSON.stringify(Object.assign({ from: MAIL.from }, msg));
   return new Promise(resolve => {
-    const r = https.request({ host: 'api.resend.com', path: '/emails', method: 'POST', timeout: 10000,
+    const r = https.request({ host: 'api.resend.com', path: '/emails', method: 'POST', timeout: 15000, family: 4,
       headers: { Authorization: 'Bearer ' + MAIL.key, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, res => {
       let d = ''; res.on('data', x => d += x);
       res.on('end', () => resolve(res.statusCode < 300 ? { ok: true } : { ok: false, why: 'email service said ' + res.statusCode + ': ' + d.slice(0, 200) }));
     });
     r.on('timeout', () => r.destroy(new Error('timeout')));
-    r.on('error', e => resolve({ ok: false, why: e.message }));
+    r.on('error', e => resolve({ ok: false, why: e.code || e.message }));
     r.end(body);
   });
 }
@@ -623,6 +623,12 @@ async function api(req, res, u, url) {
 
   if (p === '/api/admin/data' && m === 'GET') {
     return send(res, 200, { cameras: db.cameras.map(adminCam), users: db.users.map(publicUser), me: u.id, leads: (db.leads || []).slice(0, 200), mailReady: !!MAIL.key });
+  }
+
+  if (p === '/api/admin/test-email' && m === 'POST') {
+    if (!MAIL.key) return send(res, 400, { error: 'Email is not connected yet. Run the set-email command on the server.' });
+    const r = await sendMail({ to: MAIL.to, subject: 'Cop On Top test email', html: mailHtml('It works!', 'This test came from the Manage page. Quote emails are set up.', [['Sent to', MAIL.to.join(', ')], ['From', MAIL.from]], 'You can delete this email.') });
+    return r.ok ? send(res, 200, { ok: true, to: MAIL.to.join(', ') }) : send(res, 502, { error: 'Send failed: ' + r.why });
   }
 
   if (p === '/api/admin/leads' && m === 'DELETE') {
