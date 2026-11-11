@@ -20,6 +20,13 @@
 </header>
 
 <main class="wrap">
+  <!-- WEBSITE REQUESTS -->
+  <section class="panel">
+    <div class="panel-head"><h2>Quote requests &amp; messages</h2><span class="hint" id="mailState"></span></div>
+    <p class="hint">Everything people send from the website lands here, newest first.</p>
+    <div class="leads" id="leads"></div>
+  </section>
+
   <!-- CLIENT BOARD -->
   <section class="panel">
     <div class="panel-head">
@@ -158,7 +165,31 @@ async function load() { data = await call('GET', '/api/admin/data'); render(); }
 const camById = id => data.cameras.find(c => c.id === id);
 const clients = () => data.users.filter(u => u.role !== 'admin');
 
-function render() { renderPool(); renderClients(); renderCams(); renderAdmins(); }
+function render() { renderLeads(); renderPool(); renderClients(); renderCams(); renderAdmins(); }
+const usd = n => '$' + Number(n).toLocaleString('en-US');
+function renderLeads() {
+  $('mailState').textContent = data.mailReady ? '✉️ Email is on' : '✉️ Email not connected yet (requests still save here)';
+  const box = $('leads'); box.innerHTML = '';
+  const list = data.leads || [];
+  if (!list.length) { box.innerHTML = '<p class="hint">Nothing yet.</p>'; return; }
+  for (const l of list) {
+    const d = document.createElement('div'); d.className = 'lead';
+    const q = l.quote;
+    d.innerHTML = `<div class="lead-top"><span class="tag ${l.kind}"></span><strong class="who"></strong><span class="hint when"></span><button class="btn btn-line btn-sm" data-a="del">Done</button></div>
+      <div class="lead-body"><div class="lc"></div><div class="lq"></div></div>`;
+    d.querySelector('.tag').textContent = l.kind === 'quote' ? 'Quote' : 'Message';
+    d.querySelector('.who').textContent = [l.name, l.company].filter(Boolean).join(' · ') || 'No name';
+    d.querySelector('.when').textContent = new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + (l.emailed ? '' : ' · not emailed');
+    const lc = d.querySelector('.lc');
+    if (l.phone) { const a = document.createElement('a'); a.href = 'tel:' + l.phone.replace(/[^\d+]/g, ''); a.textContent = l.phone; lc.appendChild(a); }
+    if (l.email) { const a = document.createElement('a'); a.href = 'mailto:' + l.email; a.textContent = l.email; lc.appendChild(a); }
+    const lq = d.querySelector('.lq');
+    if (q) lq.textContent = `${q.towers} tower${q.towers > 1 ? 's' : ''} · ${q.months} mo · ${q.monitoring ? 'with monitoring' : 'no monitoring'} · ${q.arizona ? 'Arizona' : 'outside AZ (quote delivery)'} · ${usd(q.perMonth)}/mo · ${usd(q.total)} total`;
+    else lq.textContent = l.message || '';
+    d.querySelector('[data-a="del"]').onclick = async () => { if (!confirm('Remove this request from the list?')) return; await call('DELETE', '/api/admin/leads?id=' + encodeURIComponent(l.id)); load(); };
+    box.appendChild(d);
+  }
+}
 
 // ---------- camera pool (drag sources)
 function renderPool() {

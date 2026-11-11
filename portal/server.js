@@ -7,6 +7,7 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const https = require('https');
 
 const PORT = Number(process.env.COT_PORT || 3000);
 const DATA_DIR = process.env.COT_DATA || '/var/lib/cop-on-top';
@@ -86,6 +87,87 @@ function camsFor(u) {
 }
 const clean = (v, max = 80) => String(v == null ? '' : v).trim().slice(0, max);
 const port = v => { const n = Number(v); return Number.isInteger(n) && n > 0 && n < 65536 ? n : null; };
+
+
+// ---------------------------------------------------------------- quotes & contact messages (public website)
+// Prices live here so the emailed quote can't be edited in the browser.
+const PRICE_TOWER = 911, PRICE_MONITOR = 175;
+const MAIL = { key: process.env.RESEND_API_KEY || '', from: process.env.MAIL_FROM || 'Cop On Top <quotes@cop-on-top.com>', to: (process.env.MAIL_TO || 'support@cop-on-top.com').split(',').map(x => x.trim()).filter(Boolean) };
+const leadHits = new Map();
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => '$' + Number(n).toLocaleString('en-US');
+function calcQuote(b) {
+  const int = (v, lo, hi, d) => { const n = parseInt(v, 10); return isNaN(n) ? d : Math.min(hi, Math.max(lo, n)); };
+  const t = int(b.towers, 1, 50, 1), m = int(b.months, 1, 36, 1), mon = !!b.monitoring, az = b.state !== 'out';
+  const per = t * PRICE_TOWER + (mon ? t * PRICE_MONITOR : 0);
+  return { towers: t, months: m, monitoring: mon, arizona: az, perMonth: per, total: per * m };
+}
+function sendMail(msg) {
+  if (!MAIL.key) return Promise.resolve({ ok: false, why: 'email not set up yet' });
+  const body = JSON.stringify(Object.assign({ from: MAIL.from }, msg));
+  return new Promise(resolve => {
+    const r = https.request({ host: 'api.resend.com', path: '/emails', method: 'POST', timeout: 10000,
+      headers: { Authorization: 'Bearer ' + MAIL.key, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, res => {
+      let d = ''; res.on('data', x => d += x);
+      res.on('end', () => resolve(res.statusCode < 300 ? { ok: true } : { ok: false, why: 'email service said ' + res.statusCode + ': ' + d.slice(0, 200) }));
+    });
+    r.on('timeout', () => r.destroy(new Error('timeout')));
+    r.on('error', e => resolve({ ok: false, why: e.message }));
+    r.end(body);
+  });
+}
+function quoteRows(q) {
+  return [[q.towers + ' tower' + (q.towers > 1 ? 's' : '') + ' × ' + money(PRICE_TOWER), money(q.towers * PRICE_TOWER) + '/mo'],
+    ['Live monitoring', q.monitoring ? money(q.towers * PRICE_MONITOR) + '/mo' : 'Not included (alerts go to your crew)'],
+    ['Delivery, setup & pickup', q.arizona ? 'Free (Arizona)' : "Outside Arizona: we'll quote delivery"],
+    ['Per month', money(q.perMonth)],
+    [q.months + ' month' + (q.months > 1 ? 's' : '') + ' total', money(q.total) + (q.arizona ? '' : ' + delivery')]];
+}
+function mailHtml(title, intro, rows, outro) {
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#141829">
+<div style="background:#141B3D;padding:20px 24px;border-top:6px solid #ECF20C"><span style="color:#fff;font-size:20px;font-weight:bold;letter-spacing:.04em">COP ON TOP</span><br><span style="color:#93A0C8;font-size:12px;letter-spacing:.14em">SMARTER SURVEILLANCE</span></div>
+<div style="padding:24px;border:1px solid #DDE3F2;border-top:0"><h2 style="margin:0 0 10px;color:#141B3D">${esc(title)}</h2><p style="margin:0 0 18px;line-height:1.5">${intro}</p>
+<table style="width:100%;border-collapse:collapse;font-size:15px">${rows.map(r => `<tr><td style="padding:9px 0;border-bottom:1px solid #EEF1F8;color:#4B5773">${esc(r[0])}</td><td style="padding:9px 0;border-bottom:1px solid #EEF1F8;text-align:right;font-weight:bold">${esc(r[1])}</td></tr>`).join('')}</table>
+<p style="margin:18px 0 0;line-height:1.5;color:#4B5773;font-size:14px">${outro}</p></div></div>`;
+}
+async function handleLead(req, res) {
+  const ip = clientIp(req), now = Date.now();
+  const hits = (leadHits.get(ip) || []).filter(t => t > now - 10 * 60 * 1000);
+  if (hits.length >= 6) return send(res, 429, { error: 'Too many requests. Give it a few minutes or just call us.' });
+  hits.push(now); leadHits.set(ip, hits);
+  const b = await readJson(req);
+  if (b.website) return send(res, 200, { ok: true }); // bots fill the hidden field
+  const kind = b.kind === 'contact' ? 'contact' : 'quote';
+  const lead = { id: newId('l_'), at: new Date().toISOString(), kind, name: clean(b.name, 80), company: clean(b.company, 80),
+    email: clean(b.email, 120), phone: clean(b.phone, 40), message: clean(b.message, 2000) };
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email);
+  if (kind === 'quote') {
+    if (!emailOk || lead.phone.replace(/\D/g, '').length < 7) return send(res, 400, { error: 'Add a valid email and phone number.' });
+    lead.quote = calcQuote(b);
+  } else {
+    if (!lead.name || !lead.message || (!emailOk && lead.phone.replace(/\D/g, '').length < 7)) return send(res, 400, { error: 'Add your name, a message, and a phone or email.' });
+  }
+  db.leads = db.leads || [];
+  db.leads.unshift(lead); db.leads = db.leads.slice(0, 500); saveDb();
+
+  const who = [lead.name, lead.company].filter(Boolean).join(' · ') || 'Someone';
+  const contactRows = [['Name', lead.name || '—'], ['Company', lead.company || '—'], ['Email', lead.email || '—'], ['Phone', lead.phone || '—']];
+  let mailed = { ok: false, why: 'email not set up yet' };
+  if (kind === 'quote') {
+    const q = lead.quote;
+    mailed = await sendMail({ to: [lead.email], reply_to: MAIL.to[0], subject: 'Your Cop On Top quote: ' + money(q.perMonth) + '/mo',
+      html: mailHtml('Your quote is ready', `Thanks${lead.name ? ', ' + esc(lead.name.split(' ')[0]) : ''}! Here's the setup you priced out. Month to month, no contract.`, quoteRows(q),
+        `Questions or ready to go? Just reply to this email or call HQ at <b>602-699-4400</b>.${q.arizona ? '' : ' We\'ll follow up with your delivery cost.'}`) });
+    await sendMail({ to: MAIL.to, reply_to: lead.email, subject: 'New quote: ' + who + ' · ' + q.towers + ' tower' + (q.towers > 1 ? 's' : '') + ' · ' + money(q.perMonth) + '/mo',
+      html: mailHtml('New quote request', esc(who) + ' built a quote on the website. They already got a copy by email.', contactRows.concat(quoteRows(q)), 'Reply to this email to answer them directly.') });
+  } else {
+    mailed = await sendMail({ to: MAIL.to, reply_to: emailOk ? lead.email : undefined, subject: 'Website message from ' + who,
+      html: mailHtml('New message from the website', esc(lead.message).replace(/\n/g, '<br>'), contactRows, emailOk ? 'Reply to this email to answer them directly.' : 'They left a phone number. Give them a call.') });
+  }
+  lead.emailed = mailed.ok; if (!mailed.ok) lead.emailError = mailed.why; saveDb();
+  if (!mailed.ok && MAIL.key) console.error('lead email failed:', mailed.why);
+  return send(res, 200, { ok: true, emailed: mailed.ok, quote: lead.quote || null });
+}
 
 // ---------------------------------------------------------------- go2rtc streams
 function g2r(method, p) {
@@ -491,6 +573,8 @@ async function api(req, res, u, url) {
     return send(res, 200, { ok: true, role: user.role }, { 'Set-Cookie': `cot_s=${tok}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MS / 1000}` });
   }
 
+  if (p === '/api/lead' && m === 'POST') return handleLead(req, res);
+
   if (p === '/api/logout' && m === 'POST') {
     const tok = getCookie(req, 'cot_s'); if (tok) sessions.delete(tok);
     return send(res, 200, { ok: true }, { 'Set-Cookie': 'cot_s=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0' });
@@ -538,7 +622,13 @@ async function api(req, res, u, url) {
   if (u.role !== 'admin') return send(res, 403, { error: 'Admins only.' });
 
   if (p === '/api/admin/data' && m === 'GET') {
-    return send(res, 200, { cameras: db.cameras.map(adminCam), users: db.users.map(publicUser), me: u.id });
+    return send(res, 200, { cameras: db.cameras.map(adminCam), users: db.users.map(publicUser), me: u.id, leads: (db.leads || []).slice(0, 200), mailReady: !!MAIL.key });
+  }
+
+  if (p === '/api/admin/leads' && m === 'DELETE') {
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    db.leads = (db.leads || []).filter(l => l.id !== id); saveDb();
+    return send(res, 200, { ok: true });
   }
 
   if (p === '/api/admin/cameras' && m === 'POST') {

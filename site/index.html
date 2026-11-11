@@ -279,13 +279,17 @@ form.qf{background:#fff;color:var(--ink);border-radius:6px;padding:32px;display:
 .step{display:grid;grid-template-columns:52px 1fr 52px;border:1.5px solid var(--secure-lt);border-radius:4px;overflow:hidden;height:56px}
 .step button{border:0;background:var(--secure-xlt);color:var(--police);font:700 24px/1 var(--f-body);cursor:pointer}
 .step button:hover{background:#dfe5f5}
-.step input{border:0;border-inline:1.5px solid var(--secure-lt);text-align:center;font:700 22px var(--f-body);color:var(--navy);width:100%;min-width:0;-moz-appearance:textfield;appearance:textfield}
+.step input{background:#fff;border:0;border-inline:1.5px solid var(--secure-lt);text-align:center;font:700 22px var(--f-body);color:var(--navy);width:100%;min-width:0;-moz-appearance:textfield;appearance:textfield}
 .step input::-webkit-inner-spin-button,.step input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .step input:focus{outline:2px solid var(--police);outline-offset:-2px}
 .seg.two{grid-template-columns:1fr 1fr}
 .pq.chk,.chk{display:flex;gap:14px;align-items:flex-start;border:1.5px solid var(--secure-lt);border-radius:4px;padding:16px;cursor:pointer;font-size:15px;color:var(--ink)}
 .chk:has(input:checked){border-color:var(--police);background:var(--secure-xlt)}
-.chk input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--police)}
+.chk input{-webkit-appearance:none;appearance:none;width:22px;height:22px;flex:none;margin:0;border:1.5px solid var(--secure-lt);border-radius:4px;background:#fff;display:grid;place-content:center;cursor:pointer}
+.chk input:checked{background:var(--police);border-color:var(--police)}
+.chk input:checked::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg)}
+.chk input:focus-visible{outline:3px solid var(--police);outline-offset:2px}
+.hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
 .chk b{color:var(--navy)}
 .chk small{display:block;margin-top:4px;color:var(--secure);font-size:13.5px}
 .receipt{background:var(--navy);color:#fff;border-radius:6px;padding:26px 28px;position:sticky;top:96px}
@@ -304,7 +308,7 @@ form.qf{background:#fff;color:var(--ink);border-radius:6px;padding:32px;display:
 .receipt .fine{margin:12px 0 0;font-size:12.5px;color:#93A0C8}
 .send{margin-top:22px;padding-top:18px;border-top:2px dashed rgba(255,255,255,.25);display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .send p{grid-column:1/-1;margin:0 0 2px;font-size:14.5px;color:#C9D1EA}
-.send input{font:500 15px var(--f-body);padding:12px 13px;border:0;border-radius:4px;width:100%;min-width:0;color:var(--ink)}
+.send input{background:#fff;font:500 15px var(--f-body);padding:12px 13px;border:0;border-radius:4px;width:100%;min-width:0;color:var(--ink)}
 .send input:first-of-type{grid-column:1/-1}
 .send button{grid-column:1/-1;justify-content:center}
 .send .ok{font-size:14px;color:var(--lime);margin:4px 0 0}
@@ -669,6 +673,7 @@ html,body{height:100%}
             <div id="qsum"></div>
             <form class="send" id="sendQuote" novalidate>
               <p>Want a copy? We'll email it to you.</p>
+              <label class="hp" aria-hidden="true">Website<input id="s-web" tabindex="-1" autocomplete="off"></label>
               <input id="s-name" placeholder="Your name" autocomplete="name" aria-label="Your name">
               <input id="s-email" type="email" placeholder="Email" autocomplete="email" aria-label="Email" required>
               <input id="s-phone" type="tel" placeholder="Phone" autocomplete="tel" aria-label="Phone" required>
@@ -771,6 +776,7 @@ html,body{height:100%}
           </div>
         </div>
         <form class="qf" id="contactForm" novalidate>
+          <label class="hp" aria-hidden="true">Website<input id="c-web" tabindex="-1" autocomplete="off"></label>
           <label>Your name<input id="c-name" autocomplete="name" required></label>
           <label>Company<input id="c-company" autocomplete="organization"></label>
           <label>Phone<input id="c-phone" type="tel" autocomplete="tel"></label>
@@ -954,16 +960,33 @@ html,body{height:100%}
   renderQuote();
   document.querySelectorAll('[data-towers]').forEach(function(a){a.addEventListener('click',function(){$('q-towers').value=a.getAttribute('data-towers');renderQuote()})});
   document.querySelectorAll('[data-mon]').forEach(function(a){a.addEventListener('click',function(){$('q-mon').checked=true;renderQuote()})});
+  function postLead(data,btn){
+    btn.disabled=true;
+    return fetch('/api/lead',{method:'POST',headers:{'Content-Type':'application/json','x-cot':'1'},body:JSON.stringify(data)})
+      .then(function(r){return r.json().catch(function(){return {}}).then(function(j){j.status=r.status;return j})})
+      .catch(function(){return {status:0}})
+      .then(function(j){btn.disabled=false;return j});
+  }
   $('sendQuote').addEventListener('submit',function(e){
-    e.preventDefault();var ok=$('sendOk');ok.hidden=false;
+    e.preventDefault();var ok=$('sendOk'),btn=this.querySelector('button');ok.hidden=false;
     if(!$('s-email').value.trim()||!$('s-phone').value.trim()){ok.textContent='Add your email and phone and we\'ll send it over.';return}
-    var q=quote();
-    ok.textContent='Got it: '+money(q.per)+'/mo for '+q.t+' tower'+(q.t>1?'s':'')+'. Email delivery is being connected, so for now we\'ll reach out at '+$('s-email').value.trim()+'.';
+    var q=quote();ok.textContent='Sending…';
+    postLead({kind:'quote',name:$('s-name').value,email:$('s-email').value,phone:$('s-phone').value,website:$('s-web').value,towers:q.t,months:q.m,monitoring:q.mon,state:q.az?'AZ':'out'},btn).then(function(j){
+      if(j.ok&&j.emailed){ok.textContent='Sent! Check your inbox for your quote. We\'ll be in touch soon.'}
+      else if(j.ok){ok.textContent='Got it! We saved your quote ('+money(q.per)+'/mo) and we\'ll send it to '+$('s-email').value.trim()+' shortly.'}
+      else if(j.status===0||j.status===404||j.status===405){ok.textContent='This preview can\'t send. On cop-on-top.com this emails your quote.'}
+      else{ok.textContent=j.error||'Something went wrong. Call us at 602-699-4400.'}
+    });
   });
   $('contactForm').addEventListener('submit',function(e){
-    e.preventDefault();var ok=$('contactOk');ok.hidden=false;
+    e.preventDefault();var ok=$('contactOk'),f=this,btn=f.querySelector('button[type=submit]');ok.hidden=false;
     if(!$('c-name').value.trim()||!$('c-msg').value.trim()||(!$('c-phone').value.trim()&&!$('c-email').value.trim())){ok.textContent='Add your name, a message, and a phone or email so we can reach you.';return}
-    ok.textContent='Preview only: this form isn\'t connected yet. Once it is, your message goes straight to support@cop-on-top.com.';
+    ok.textContent='Sending…';
+    postLead({kind:'contact',name:$('c-name').value,company:$('c-company').value,phone:$('c-phone').value,email:$('c-email').value,message:$('c-msg').value,website:$('c-web').value},btn).then(function(j){
+      if(j.ok){ok.textContent='Thanks! Your message is in. We\'ll get back to you soon.';f.reset()}
+      else if(j.status===0||j.status===404||j.status===405){ok.textContent='This preview can\'t send. On cop-on-top.com this goes straight to our team.'}
+      else{ok.textContent=j.error||'Something went wrong. Call us at 602-699-4400.'}
+    });
   });
 
   /* Login */

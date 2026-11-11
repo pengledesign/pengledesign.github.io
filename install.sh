@@ -38,6 +38,7 @@ rm -rf /var/www/cop-on-top/*
 cp -r /opt/cop-on-top/site/. /var/www/cop-on-top/
 cp /opt/cop-on-top/deploy/Caddyfile /etc/caddy/Caddyfile
 
+mkdir -p /etc/cop-on-top && chmod 700 /etc/cop-on-top
 echo "==> Starting services"
 cp /opt/cop-on-top/deploy/go2rtc.service /opt/cop-on-top/deploy/cop-portal.service /etc/systemd/system/
 systemctl daemon-reload
