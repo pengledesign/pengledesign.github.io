@@ -1,5 +1,7 @@
-copontop.net, www.copontop.net, cop-on-top.com, www.cop-on-top.com {
+copontop.net, www.copontop.net {
 	encode gzip
+	@www host www.copontop.net
+	redir @www https://copontop.net{uri} 301
 	@portal path /portal /portal/* /api/*
 	handle @portal {
 		reverse_proxy 127.0.0.1:3000
@@ -8,4 +10,9 @@ copontop.net, www.copontop.net, cop-on-top.com, www.cop-on-top.com {
 		root * /var/www/cop-on-top
 		file_server
 	}
+}
+
+# Old domain: send everyone to the new one, keeping the page path.
+cop-on-top.com, www.cop-on-top.com {
+	redir https://copontop.net{uri} 301
 }
